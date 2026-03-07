@@ -1,7 +1,13 @@
 [project]
 name = "dynamic-lyrics"
 version = "0.1.0"
-description = "Add your description here"
+description = "Backend prototype for a dynamic lyrics learning app"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "fastapi>=0.116.0",
+    "httpx>=0.28.0",
+    "python-multipart>=0.0.20",
+    "pydantic>=2.11.0",
+    "uvicorn>=0.35.0",
+]
