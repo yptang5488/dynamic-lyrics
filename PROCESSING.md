@@ -2,14 +2,15 @@
 
 ## Current Status
 
-The project has completed the first backend prototype pass for the dynamic lyrics app.
+The project has completed a first end-to-end prototype pass for the dynamic lyrics app.
 
 Implemented focus:
 
 - source import flow
 - local background jobs
 - mock lyric alignment
-- timed song JSON output for future frontend integration
+- timed song JSON output for player consumption
+- frontend import, job monitor, and player workflow
 
 ## Completed Work
 
@@ -61,6 +62,15 @@ Implemented focus:
 - stored exported payload in SQLite and `data/export`
 - exposed `GET /api/songs/{songId}` for player consumption
 
+### Frontend Prototype
+
+- added a React + Vite frontend under `frontend`
+- added route wiring for import, job, and player pages
+- built the import page for upload / YouTube source selection and lyric input
+- built the job monitor page with polling and automatic workflow handoff
+- built the player page with audio playback, active-line highlighting, click-to-seek, translation toggle, and auto-scroll
+- added frontend workflow persistence with session storage
+
 ### Documentation and Validation
 
 - updated `README.md` with local run instructions and tool requirements
@@ -83,13 +93,13 @@ Implemented focus:
 - background jobs run in-process and are not yet durable worker jobs
 - YouTube import depends on local `yt-dlp`
 - audio normalization quality depends on local `ffmpeg`
-- there is no frontend UI yet
 - `segments` and `notes` are placeholders only
+- there is no automated test suite yet
 
 ## Next Recommended Steps
 
 1. replace the mock aligner with a real alignment engine
 2. add clearer job progress messages for YouTube download and normalization
-3. build the frontend import page, status page, and synchronized lyrics player
-4. add manual correction support for low-confidence timing
-5. extend the data model to support segment-level timing and timed learning notes
+3. add manual correction support for low-confidence timing
+4. extend the data model to support segment-level timing and timed learning notes
+5. add automated tests for the backend workflow and frontend player flow

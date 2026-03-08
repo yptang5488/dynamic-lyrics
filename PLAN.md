@@ -2,16 +2,41 @@
 
 ## Product Goal
 
-Build a web app for foreign music learning and idol/music guided learning.
+Build a web app for foreign music learning and guided singing practice.
 
 The app should let a user:
 
 - play music while lyrics are highlighted dynamically
 - show original lyrics and optional translation
-- toggle translation visibility with a mode button
+- toggle translation visibility for focus mode
 - click a lyric line to jump playback to that timestamp
-- support learning-focused notes, including timed word or phrase cues
-- support cheering / guided singing cues such as singing only selected words or the back half of a sentence
+- attach learning notes to a whole line or a smaller phrase
+- support guided singing or cheering cues for selected words or segments
+
+## Current Project Status
+
+The repository already includes a working local prototype.
+
+Implemented today:
+
+- FastAPI backend with SQLite metadata storage
+- React + Vite frontend with import, job, and player pages
+- audio upload flow
+- YouTube import job flow
+- in-process background job runner
+- mock line-level lyric alignment
+- player-ready song JSON export
+- synchronized lyric playback with translation toggle, auto-scroll, and click-to-seek
+
+Not implemented yet:
+
+- real audio-to-lyrics alignment
+- segment or word timing
+- manual timing correction tools
+- timed learning notes editor
+- guided singing / cheering authoring tools
+- durable worker infrastructure
+- automated test coverage
 
 ## Core Product Scope
 
@@ -25,14 +50,14 @@ The app should let a user:
 ### Learning UX
 
 - original lyric display
-- translation display with show / hide mode toggle
+- translation display with show / hide toggle
 - focus mode for original-only learning
-- timed notes attached to a full line or only part of a line
+- timed notes attached to a full line or part of a line
 - word-focused notes for vocabulary, cheering, follow-singing, or phrase practice
 
 ### Data Model Direction
 
-Use JSON as the main format instead of plain LRC so the project can support:
+Use JSON as the main timed lyric format so the project can support:
 
 - line-level timing
 - future segment / word timing
@@ -75,14 +100,28 @@ Recommended song shape:
 - pasted raw lyrics text
 - optional pasted translations
 
-### Auto Timing Strategy
+### Timing Strategy
 
 - `audio only`: not reliable for full lyric alignment
 - `audio + lyrics`: recommended and supported direction
-- backend should first support line-level timing output
+- current prototype supports line-level timing only
 - future versions can add segment / word alignment and manual correction tools
 
-## Backend Plan
+## Current Architecture
+
+### Backend
+
+- FastAPI API app
+- SQLite for metadata and exported song payloads
+- local file storage under `data/`
+- in-process threaded jobs for YouTube import and alignment
+
+### Frontend
+
+- React + TypeScript + Vite
+- React Router for page flow
+- TanStack Query for API polling and state fetching
+- session storage for temporary workflow persistence
 
 ### Current Project Structure
 
@@ -90,32 +129,18 @@ Recommended song shape:
 dynamic-lyrics/
   app/
     api/
-      routes_alignments.py
-      routes_health.py
-      routes_jobs.py
-      routes_songs.py
-      routes_sources.py
     db/
-      session.py
-      tables.py
     models/
-      schemas.py
     services/
-      aligner_base.py
-      aligner_mock.py
-      audio_normalize.py
-      lyrics_parser.py
-      song_builder.py
-      source_service.py
-      youtube_import.py
     workers/
-      job_runner.py
     config.py
     main.py
   data/
     raw/
     normalized/
     export/
+  frontend/
+    src/
   PLAN.md
   PROCESSING.md
   README.md
@@ -124,25 +149,17 @@ dynamic-lyrics/
   uv.lock
 ```
 
-This structure reflects the current backend-first implementation phase and leaves room for a future frontend app to be added alongside the API.
+## Current Flow
 
-### Stack
+1. Create a source from upload or YouTube URL.
+2. Normalize or prepare audio.
+3. Submit an alignment job with lyrics and language.
+4. Generate timed JSON for the player.
+5. Open the player and study with synchronized lines.
 
-- FastAPI
-- SQLite
-- local file storage
-- local background jobs
+## Current API Shape
 
-### Main Responsibilities
-
-- import audio from upload or YouTube URL
-- normalize audio into a backend-friendly format
-- accept raw lyrics and optional translations
-- run lyric alignment jobs
-- export frontend-ready timed song JSON
-
-### Planned API Shape
-
+- `GET /api/health`
 - `POST /api/sources/upload-audio`
 - `POST /api/sources/import-youtube`
 - `GET /api/sources/{sourceId}`
@@ -150,25 +167,15 @@ This structure reflects the current backend-first implementation phase and leave
 - `GET /api/jobs/{jobId}`
 - `GET /api/songs/{songId}`
 
-### Job Flow
+## Frontend Scope
 
-1. create source from upload or YouTube URL
-2. normalize audio
-3. submit alignment job with lyrics and language
-4. produce timed JSON
-5. later support manual correction and note editing
+### Implemented UI
 
-## Frontend Plan
-
-Frontend work starts after backend timing flow is stable.
-
-### Initial UI Scope
-
-- import page for audio / YouTube URL and lyrics input
+- import page for source selection and lyric input
 - job status page for import and alignment progress
 - player page using timed JSON from backend
 
-### Player Behaviors
+### Implemented Player Behaviors
 
 - synchronized lyric highlighting
 - translation show / hide toggle
@@ -185,21 +192,38 @@ Frontend work starts after backend timing flow is stable.
 
 ## Delivery Phases
 
-### Phase 1
+### Phase 1 - Prototype Foundation
+
+Status: mostly complete
 
 - backend skeleton
 - local jobs
 - source import pipeline
 - mock line-level aligner
 - timed JSON contract
+- initial frontend import, job monitor, and player
 
-### Phase 2
+### Phase 2 - Real Alignment
 
-- real alignment engine
-- frontend player and import UI
+Status: next major milestone
 
-### Phase 3
+- replace mock aligner with a real alignment engine
+- improve job progress reporting and failure visibility
+- add validation and workflow hardening across backend and frontend
+
+### Phase 3 - Learning Tools
+
+Status: planned
 
 - segment / word timing
+- manual correction tools
 - timed notes editor
-- cheering-focused learning tools
+- guided singing / cheering features
+
+### Phase 4 - Production Readiness
+
+Status: planned
+
+- durable worker infrastructure
+- automated backend and frontend tests
+- cleaner deployment and environment setup
