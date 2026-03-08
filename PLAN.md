@@ -28,6 +28,17 @@ Implemented today:
 - player-ready song JSON export
 - synchronized lyric playback with translation toggle, auto-scroll, and click-to-seek
 
+Next planned primary workflow:
+
+- `mp3 + lrc` import as the main timing source
+- paired bilingual LRC parsing where the original line carries the sentence start time and the following translation line carries the sentence end time
+
+Implemented in backend now:
+
+- paired bilingual LRC parsing and block building
+- `POST /api/alignments/from-lrc`
+- `lrc_import` job execution and song JSON export
+
 Not implemented yet:
 
 - real audio-to-lyrics alignment
@@ -42,8 +53,10 @@ Testing already completed:
 
 - backend pytest coverage for lyrics parsing
 - backend workflow coverage for upload -> alignment -> song JSON
+- backend workflow coverage for upload -> `from-lrc` -> song JSON
 - backend API edge coverage for source, job, and song endpoints
 - backend failure coverage for translation mismatch and YouTube import failures
+- backend parser coverage for paired bilingual LRC rules
 
 ## Core Product Scope
 
@@ -106,13 +119,33 @@ Recommended song shape:
 - YouTube URL import for personal-use workflow
 - pasted raw lyrics text
 - optional pasted translations
+- planned primary path: uploaded audio plus paired bilingual `.lrc`
 
 ### Timing Strategy
 
 - `audio only`: not reliable for full lyric alignment
 - `audio + lyrics`: recommended and supported direction
+- `audio + paired bilingual lrc`: planned primary direction for reliable timing import
 - current prototype supports line-level timing only
 - future versions can add segment / word alignment and manual correction tools
+
+### Paired Bilingual LRC Rule
+
+The first importer target is the format shown in `BANG BANG-MusicEnc.lrc:1`.
+
+Interpret each lyric unit as:
+
+- `{sentence start}` original lyric
+- `{sentence end}` translated lyric
+
+So the importer should build line payloads with:
+
+- `start = original timestamp`
+- `end = following translation timestamp`
+- `text = original lyric`
+- `translation = following translated lyric`
+
+Credits and empty spacer rows should be ignored when producing player lyrics.
 
 ## Current Architecture
 
@@ -160,9 +193,10 @@ dynamic-lyrics/
 
 1. Create a source from upload or YouTube URL.
 2. Normalize or prepare audio.
-3. Submit an alignment job with lyrics and language.
-4. Generate timed JSON for the player.
-5. Open the player and study with synchronized lines.
+3. Preferred path: submit a paired bilingual LRC file to the `from-lrc` import flow.
+4. Fallback path: submit an alignment job with pasted lyrics and language.
+5. Generate timed JSON for the player.
+6. Open the player and study with synchronized lines.
 
 ## Current API Shape
 
@@ -171,6 +205,7 @@ dynamic-lyrics/
 - `POST /api/sources/import-youtube`
 - `GET /api/sources/{sourceId}`
 - `POST /api/alignments`
+- `POST /api/alignments/from-lrc`
 - `GET /api/jobs/{jobId}`
 - `GET /api/songs/{songId}`
 
@@ -214,7 +249,8 @@ Status: mostly complete
 
 Status: next major milestone
 
-- replace mock aligner with a real alignment engine
+- connect the frontend import flow to the implemented `mp3 + lrc` backend path
+- keep raw-lyrics alignment as a fallback path
 - improve job progress reporting and failure visibility
 - add validation and workflow hardening across backend and frontend
 

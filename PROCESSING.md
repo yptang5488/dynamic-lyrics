@@ -4,6 +4,8 @@
 
 The project has completed a first end-to-end prototype pass for the dynamic lyrics app.
 
+The project now has an implemented backend path for `mp3 + lrc`, and the next step is to connect that path through the frontend import flow.
+
 Implemented focus:
 
 - source import flow
@@ -49,6 +51,16 @@ Implemented focus:
 - implemented mock line-level aligner in `app/services/aligner_mock.py`
 - generated line timing, confidence, and placeholder `segments` / `notes`
 
+### LRC Timing Import
+
+- added paired bilingual LRC parsing in `app/services/lrc_parser.py`
+- added line classification for original, translation, credit, and empty rows
+- added block pairing with the agreed rule: original timestamp = `start`, following translation timestamp = `end`
+- added fallback handling when a translation line is missing
+- added metadata extraction for standard LRC title / artist fields
+- added `POST /api/alignments/from-lrc` as the new LRC import entrypoint
+- added `lrc_import` job support in `app/workers/job_runner.py`
+
 ### Background Jobs
 
 - implemented local threaded job runner in `app/workers/job_runner.py`
@@ -83,8 +95,10 @@ Implemented focus:
 - added isolated backend test fixtures in `tests/backend/conftest.py`
 - added parser tests for blank-line cleanup, empty input, and translation count validation
 - added workflow tests for upload -> alignment -> song fetch and song 404 handling
+- added workflow tests for upload -> LRC import -> song fetch
 - added song builder tests for payload shape and export file persistence
 - added API edge tests for source/job lookups, invalid YouTube payloads, failed sources, and alignment failure scenarios
+- added LRC parser tests using paired bilingual rules and the `BANG BANG-MusicEnc.lrc` sample
 - verified the backend suite with `uv run --group dev pytest tests/backend`
 
 ## Current API Coverage
@@ -94,6 +108,7 @@ Implemented focus:
 - `POST /api/sources/import-youtube`
 - `GET /api/sources/{sourceId}`
 - `POST /api/alignments`
+- `POST /api/alignments/from-lrc`
 - `GET /api/jobs/{jobId}`
 - `GET /api/songs/{songId}`
 
@@ -108,8 +123,28 @@ Implemented focus:
 
 ## Next Recommended Steps
 
-1. replace the mock aligner with a real alignment engine
-2. add clearer job progress messages for YouTube download and normalization
-3. add manual correction support for low-confidence timing
+1. connect the frontend import flow to `POST /api/alignments/from-lrc`
+2. add file upload UX for `.lrc` alongside audio upload
+3. improve job progress messages and warnings surfaced from LRC import jobs
 4. extend the data model to support segment-level timing and timed learning notes
 5. add frontend automated tests for the import, job, and player flow
+
+## Agreed LRC Interpretation Rule
+
+The current planning baseline comes from files like `BANG BANG-MusicEnc.lrc:1`.
+
+For this importer, each lyric block should be interpreted as:
+
+- `{sentence start}` original lyric
+- `{sentence end}` translated lyric
+
+Implementation consequences:
+
+- use the original line timestamp as the lyric `start`
+- use the following translation line timestamp as the lyric `end`
+- store the original line as `text`
+- store the following translated line as `translation`
+- ignore credit rows and empty spacer rows when building player lyrics
+- if a translation line is missing, fall back to the next available original timestamp or source duration for `end`
+
+This rule is intentionally specific to the paired bilingual LRC format that the project supports first; it is not a claim about all generic LRC files.

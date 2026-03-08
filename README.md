@@ -2,7 +2,9 @@
 
 Dynamic Lyrics is a local full-stack prototype for studying songs with synchronized lyrics.
 
-It already supports importing audio, attaching lyrics and optional translations, running a backend timing flow, and opening a web player that highlights lines in sync with playback.
+It already supports importing audio, attaching lyrics and optional translations, running a backend timing flow, importing paired bilingual LRC timing, and opening a web player that highlights lines in sync with playback.
+
+The current backend direction is `mp3 + lrc`, using paired bilingual LRC files as the main source of lyric timing.
 
 ## What It Does
 
@@ -51,10 +53,11 @@ If these tools are missing, some flows either fall back to a simpler path or are
 ## Current User Flow
 
 1. Choose a source by uploading audio or pasting a YouTube watch URL.
-2. Paste original lyrics and optional matching translations.
-3. Create a sync job.
-4. Watch import and alignment progress on the job page.
-5. Open the generated player and study with synchronized lyric lines.
+2. Preferred path: provide an `.lrc` file that already carries lyric timing.
+3. Fallback path: paste original lyrics and optional matching translations.
+4. Create a sync job.
+5. Watch import and timing progress on the job page.
+6. Open the generated player and study with synchronized lyric lines.
 
 ## API Coverage
 
@@ -63,6 +66,7 @@ If these tools are missing, some flows either fall back to a simpler path or are
 - `POST /api/sources/import-youtube`
 - `GET /api/sources/{sourceId}`
 - `POST /api/alignments`
+- `POST /api/alignments/from-lrc`
 - `GET /api/jobs/{jobId}`
 - `GET /api/songs/{songId}`
 
@@ -76,15 +80,40 @@ Implemented now:
 - frontend pages for import, job monitoring, and playback
 - line-based lyric display with translation toggle and auto-scroll
 - backend export of player-ready song JSON
+- backend LRC import job flow for paired bilingual `.lrc` files
 - backend pytest coverage for parser, song export, API edge cases, and alignment workflow
 
 Still in progress:
 
-- replacing mock timing with real audio-to-lyrics alignment
+- wiring the frontend import flow to upload `.lrc` directly
 - adding segment or word-level timing
 - adding manual correction tools for low-confidence lines
 - adding timed notes and guided singing features
 - adding frontend automated tests and more durable job infrastructure
+
+## LRC Input Rule
+
+The backend now targets paired bilingual LRC files like `BANG BANG-MusicEnc.lrc:1`.
+
+The working rule for that format is:
+
+- `{sentence start}` original lyric
+- `{sentence end}` translated lyric
+
+That means the importer should interpret each block as:
+
+- `start = original line timestamp`
+- `end = translation line timestamp`
+- `text = original line text`
+- `translation = following translated line text`
+
+Credits, metadata-like lines, and empty spacer lines should be ignored for player lyrics.
+
+The current backend implementation also applies these practical rules:
+
+- translation lines without a preceding original line are ignored with a warning
+- if a translation line is missing, `end` falls back to the next original timestamp or source duration
+- standard `[ti:]` and `[ar:]` metadata can be used to fill song title and artist
 
 ## Testing
 
@@ -92,6 +121,8 @@ Backend tests already cover:
 
 - lyrics parsing, blank-line cleanup, and translation count validation
 - upload -> alignment -> song JSON workflow
+- upload -> `from-lrc` -> song JSON workflow
+- paired bilingual LRC parsing, classification, and timing block building
 - song export payload shape and export file creation
 - source, job, and song API success / 404 / 422 edge cases
 - YouTube import failure handling and URL sanitization
@@ -106,7 +137,7 @@ uv run --group dev pytest tests/backend
 
 ### Near Term
 
-- replace the mock aligner with a real alignment engine
+- wire the frontend import page to the new `from-lrc` backend flow
 - improve job progress messages and error feedback
 - harden backend and frontend workflow validation
 

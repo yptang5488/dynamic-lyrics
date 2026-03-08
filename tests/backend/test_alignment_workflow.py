@@ -80,6 +80,69 @@ def test_upload_alignment_and_song_fetch_workflow(
     assert export_path.exists()
 
 
+def test_upload_lrc_import_and_song_fetch_workflow(
+    client: TestClient, test_settings, wait_for_job_completion
+) -> None:
+    upload_response = client.post(
+        "/api/sources/upload-audio",
+        files={"file": ("bangbang.mp3", b"fake audio bytes", "audio/mpeg")},
+    )
+    upload_response.raise_for_status()
+    source_payload = upload_response.json()
+
+    lrc_response = client.post(
+        "/api/alignments/from-lrc",
+        json={
+            "sourceId": source_payload["sourceId"],
+            "language": "ko",
+            "lrcText": "\n".join(
+                [
+                    "[00:08.000]이미 알아차렸겠지",
+                    "[00:10.000]应该早就已经察觉",
+                    "[00:10.000]그치 언니",
+                    "[00:11.000]对吧姐姐",
+                ]
+            ),
+        },
+    )
+    lrc_response.raise_for_status()
+
+    job_payload = wait_for_job_completion(client, lrc_response.json()["jobId"])
+    assert job_payload["status"] == "done"
+    assert job_payload["id"].startswith("job_")
+    assert job_payload["type"] == "lrc_import"
+
+    song_id = job_payload["result"]["songId"]
+    song_payload = client.get(f"/api/songs/{song_id}").json()
+
+    assert song_payload["audio"]["sourceId"] == source_payload["sourceId"]
+    assert song_payload["lyrics"] == [
+        {
+            "id": "l1",
+            "start": 8.0,
+            "end": 10.0,
+            "text": "이미 알아차렸겠지",
+            "translation": "应该早就已经察觉",
+            "confidence": 0.98,
+            "segments": [],
+            "notes": [],
+        },
+        {
+            "id": "l2",
+            "start": 10.0,
+            "end": 11.0,
+            "text": "그치 언니",
+            "translation": "对吧姐姐",
+            "confidence": 0.98,
+            "segments": [],
+            "notes": [],
+        },
+    ]
+
+    export_path = test_settings.export_dir / f"{song_id}.json"
+    assert export_path.exists()
+
+
 def test_get_song_returns_404_for_unknown_song(client: TestClient) -> None:
     response = client.get("/api/songs/song_missing")
 

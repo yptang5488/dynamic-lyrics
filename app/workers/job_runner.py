@@ -13,6 +13,7 @@ from app.db.session import (
     utc_now,
 )
 from app.services.aligner_mock import MockAligner
+from app.services.lrc_parser import build_paired_lrc_lyrics
 from app.services.lyrics_parser import parse_lyrics
 from app.services.song_builder import build_song
 from app.services.source_service import fetch_source
@@ -50,6 +51,23 @@ class JobRunner:
             },
         )
         self._spawn(job_id, self._run_alignment)
+        return job_id
+
+    def submit_lrc_import(
+        self,
+        source_id: str,
+        language: str,
+        lrc_text: str,
+    ) -> str:
+        job_id = self._create_job(
+            job_type="lrc_import",
+            source_id=source_id,
+            payload={
+                "language": language,
+                "lrcText": lrc_text,
+            },
+        )
+        self._spawn(job_id, self._run_lrc_import)
         return job_id
 
     def _create_job(self, job_type: str, source_id: str, payload: dict) -> str:
@@ -154,6 +172,60 @@ class JobRunner:
                 progress=100,
                 message="alignment completed",
                 result={"songId": song["id"]},
+            )
+        except Exception as exc:  # noqa: BLE001
+            self._fail_job(job_id, exc)
+
+    def _run_lrc_import(self, job_id: str) -> None:
+        job = self.get_job(job_id)
+        if not job:
+            return
+        source = fetch_source(job["source_id"])
+        if not source:
+            self._fail_job(job_id, RuntimeError("source not found"))
+            return
+
+        try:
+            if source["status"] != "ready":
+                raise RuntimeError("source is not ready for lrc import")
+
+            payload = json_loads(job["payload_json"], {})
+            self._set_job(
+                job_id, status="processing", progress=15, message="parsing lrc"
+            )
+            lyrics, metadata, warnings = build_paired_lrc_lyrics(
+                payload["lrcText"], duration=source.get("duration")
+            )
+            if not lyrics:
+                raise RuntimeError("no lyric lines found in lrc input")
+
+            source_updates: dict[str, object] = {"updated_at": utc_now()}
+            title = metadata.get("ti")
+            artist = metadata.get("ar")
+            if title:
+                source_updates["title"] = title
+            if artist:
+                source_updates["artist"] = artist
+            if len(source_updates) > 1:
+                update_record("sources", source["id"], source_updates)
+                source = fetch_source(source["id"]) or source
+
+            self._set_job(
+                job_id,
+                progress=75,
+                message="building song payload",
+                result={"warnings": warnings} if warnings else None,
+            )
+            song = build_song(source, payload["language"], lyrics)
+            result = {"songId": song["id"]}
+            if warnings:
+                result["warnings"] = warnings
+            self._set_job(
+                job_id,
+                status="done",
+                progress=100,
+                message="lrc import completed",
+                result=result,
             )
         except Exception as exc:  # noqa: BLE001
             self._fail_job(job_id, exc)

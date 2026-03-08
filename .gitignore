@@ -14,3 +14,9 @@ app.db
 data/raw/
 data/normalized/
 data/export/
+
+# testin model
+whisperx-poc/
+
+# example
+lrc_example/

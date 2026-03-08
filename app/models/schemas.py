@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 SourceType = Literal["upload", "youtube"]
 SourceStatus = Literal["queued", "processing", "ready", "failed"]
-JobType = Literal["youtube_import", "alignment"]
+JobType = Literal["youtube_import", "alignment", "lrc_import"]
 JobStatus = Literal["queued", "processing", "done", "failed"]
 
 
@@ -55,6 +55,20 @@ class AlignmentRequest(BaseModel):
     def validate_lyrics(self) -> "AlignmentRequest":
         if not self.lyrics_text.strip():
             raise ValueError("lyricsText must not be empty")
+        return self
+
+
+class LrcImportRequest(BaseModel):
+    source_id: str = Field(alias="sourceId")
+    language: str
+    lrc_text: str = Field(alias="lrcText")
+
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def validate_lrc(self) -> "LrcImportRequest":
+        if not self.lrc_text.strip():
+            raise ValueError("lrcText must not be empty")
         return self
 
 
