@@ -77,6 +77,16 @@ Implemented focus:
 - verified imports and compilation with `uv run python -m compileall app main.py`
 - ran smoke tests for upload -> alignment -> song JSON flow
 
+### Backend Test Coverage
+
+- added `pytest` as a dev dependency group in `pyproject.toml`
+- added isolated backend test fixtures in `tests/backend/conftest.py`
+- added parser tests for blank-line cleanup, empty input, and translation count validation
+- added workflow tests for upload -> alignment -> song fetch and song 404 handling
+- added song builder tests for payload shape and export file persistence
+- added API edge tests for source/job lookups, invalid YouTube payloads, failed sources, and alignment failure scenarios
+- verified the backend suite with `uv run --group dev pytest tests/backend`
+
 ## Current API Coverage
 
 - `GET /api/health`
@@ -94,7 +104,7 @@ Implemented focus:
 - YouTube import depends on local `yt-dlp`
 - audio normalization quality depends on local `ffmpeg`
 - `segments` and `notes` are placeholders only
-- there is no automated test suite yet
+- frontend automated tests are not implemented yet
 
 ## Next Recommended Steps
 
@@ -102,4 +112,4 @@ Implemented focus:
 2. add clearer job progress messages for YouTube download and normalization
 3. add manual correction support for low-confidence timing
 4. extend the data model to support segment-level timing and timed learning notes
-5. add automated tests for the backend workflow and frontend player flow
+5. add frontend automated tests for the import, job, and player flow

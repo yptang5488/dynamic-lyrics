@@ -76,6 +76,7 @@ Implemented now:
 - frontend pages for import, job monitoring, and playback
 - line-based lyric display with translation toggle and auto-scroll
 - backend export of player-ready song JSON
+- backend pytest coverage for parser, song export, API edge cases, and alignment workflow
 
 Still in progress:
 
@@ -83,7 +84,23 @@ Still in progress:
 - adding segment or word-level timing
 - adding manual correction tools for low-confidence lines
 - adding timed notes and guided singing features
-- adding automated tests and more durable job infrastructure
+- adding frontend automated tests and more durable job infrastructure
+
+## Testing
+
+Backend tests already cover:
+
+- lyrics parsing, blank-line cleanup, and translation count validation
+- upload -> alignment -> song JSON workflow
+- song export payload shape and export file creation
+- source, job, and song API success / 404 / 422 edge cases
+- YouTube import failure handling and URL sanitization
+
+Run backend tests with:
+
+```bash
+uv run --group dev pytest tests/backend
+```
 
 ## Roadmap
 
@@ -117,4 +134,4 @@ Still in progress:
 - YouTube import depends on local `yt-dlp`
 - audio normalization quality depends on local `ffmpeg`
 - `segments` and `notes` in lyric lines are placeholders only
-- there is not yet an automated test suite in the repository
+- frontend automated tests are not implemented yet

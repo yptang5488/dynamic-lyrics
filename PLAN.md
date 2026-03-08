@@ -36,7 +36,14 @@ Not implemented yet:
 - timed learning notes editor
 - guided singing / cheering authoring tools
 - durable worker infrastructure
-- automated test coverage
+- frontend automated test coverage
+
+Testing already completed:
+
+- backend pytest coverage for lyrics parsing
+- backend workflow coverage for upload -> alignment -> song JSON
+- backend API edge coverage for source, job, and song endpoints
+- backend failure coverage for translation mismatch and YouTube import failures
 
 ## Core Product Scope
 
@@ -225,5 +232,5 @@ Status: planned
 Status: planned
 
 - durable worker infrastructure
-- automated backend and frontend tests
+- frontend automated tests and broader integration coverage
 - cleaner deployment and environment setup
