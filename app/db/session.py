@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any, Iterator
 
 from app.config import settings
@@ -11,7 +11,7 @@ from app.db.tables import JOB_TABLE_SQL, SONG_TABLE_SQL, SOURCE_TABLE_SQL
 
 
 def utc_now() -> str:
-    return datetime.now(UTC).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def init_db() -> None:

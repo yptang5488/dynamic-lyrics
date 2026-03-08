@@ -3,7 +3,7 @@ name = "dynamic-lyrics"
 version = "0.1.0"
 description = "Backend prototype for a dynamic lyrics learning app"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.10,<3.11"
 dependencies = [
     "fastapi>=0.116.0",
     "httpx>=0.28.0",
