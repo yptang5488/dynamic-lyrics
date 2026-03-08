@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { JobStatusCard } from '../components/JobStatusCard'
@@ -13,7 +13,7 @@ export function JobPage() {
   const navigate = useNavigate()
   const [workflow, setWorkflow] = useState<WorkflowState | null>(() => loadWorkflow())
   const [jobError, setJobError] = useState<string | null>(null)
-  const [hasStartedAlignment, setHasStartedAlignment] = useState(false)
+  const hasStartedAlignmentRef = useRef(false)
 
   const currentJobId = workflow?.alignmentJobId ?? workflow?.sourceJobId ?? jobId
 
@@ -45,9 +45,7 @@ export function JobPage() {
 
     if (job.type === 'alignment' && job.status === 'done' && job.result?.songId) {
       if (workflow && workflow.songId !== job.result.songId) {
-        const nextWorkflow = { ...workflow, songId: job.result.songId }
-        setWorkflow(nextWorkflow)
-        saveWorkflow(nextWorkflow)
+        saveWorkflow({ ...workflow, songId: job.result.songId })
       }
 
       const timer = window.setTimeout(() => {
@@ -57,14 +55,11 @@ export function JobPage() {
     }
 
     if (!workflow) {
-      if (job.status === 'failed') {
-        setJobError(job.errorMessage ?? 'The current job failed.')
-      }
       return
     }
 
-    if (job.type === 'youtube_import' && job.status === 'done' && !workflow.alignmentJobId && !hasStartedAlignment) {
-      setHasStartedAlignment(true)
+    if (job.type === 'youtube_import' && job.status === 'done' && !workflow.alignmentJobId && !hasStartedAlignmentRef.current) {
+      hasStartedAlignmentRef.current = true
       void createAlignment({
         sourceId: workflow.sourceId,
         language: workflow.language,
@@ -82,16 +77,13 @@ export function JobPage() {
         })
         .catch((error: Error) => {
           setJobError(error.message)
-          setHasStartedAlignment(false)
+          hasStartedAlignmentRef.current = false
         })
     }
-
-    if (job.status === 'failed') {
-      setJobError(job.errorMessage ?? 'The current job failed.')
-    }
-  }, [hasStartedAlignment, jobQuery.data, navigate, workflow])
+  }, [jobQuery.data, navigate, workflow])
 
   const completedSongId = jobQuery.data?.type === 'alignment' ? jobQuery.data.result?.songId : undefined
+  const displayedError = jobError ?? jobQuery.data?.errorMessage ?? (jobQuery.data?.status === 'failed' ? 'The current job failed.' : null)
 
   const title = useMemo(() => {
     const type = jobQuery.data?.type
@@ -126,7 +118,7 @@ export function JobPage() {
               status={jobQuery.data.status}
               progress={jobQuery.data.progress}
               message={jobQuery.data.message ?? inferMessage(jobQuery.data.type, jobQuery.data.status)}
-              error={jobError ?? jobQuery.data.errorMessage}
+              error={displayedError}
             />
           ) : (
             <div className="error-state">Job details could not be loaded.</div>
