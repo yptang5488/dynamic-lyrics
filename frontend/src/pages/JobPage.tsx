@@ -43,7 +43,7 @@ export function JobPage() {
       return
     }
 
-    if (job.type === 'alignment' && job.status === 'done' && job.result?.songId) {
+    if ((job.type === 'alignment' || job.type === 'lrc_import') && job.status === 'done' && job.result?.songId) {
       if (workflow && workflow.songId !== job.result.songId) {
         saveWorkflow({ ...workflow, songId: job.result.songId })
       }
@@ -82,7 +82,9 @@ export function JobPage() {
     }
   }, [jobQuery.data, navigate, workflow])
 
-  const completedSongId = jobQuery.data?.type === 'alignment' ? jobQuery.data.result?.songId : undefined
+  const completedSongId = jobQuery.data?.type === 'alignment' || jobQuery.data?.type === 'lrc_import'
+    ? jobQuery.data.result?.songId
+    : undefined
   const displayedError = jobError ?? jobQuery.data?.errorMessage ?? (jobQuery.data?.status === 'failed' ? 'The current job failed.' : null)
 
   const title = useMemo(() => {
@@ -92,6 +94,9 @@ export function JobPage() {
     }
     if (type === 'alignment') {
       return 'Building synced lyrics'
+    }
+    if (type === 'lrc_import') {
+      return 'Importing paired LRC timing'
     }
     return 'Checking workflow state'
   }, [jobQuery.data?.type])
@@ -180,10 +185,10 @@ export function JobPage() {
             <div className="quick-list">
               <div className="metric">
                 <strong>Import complete</strong>
-                <span className="muted">The app automatically submits the alignment step for YouTube-based workflows.</span>
+                <span className="muted">YouTube sources continue into lyric alignment, while uploaded audio can finish through the LRC import path.</span>
               </div>
               <div className="metric">
-                <strong>Alignment complete</strong>
+                <strong>Song payload complete</strong>
                 <span className="muted">You are redirected to the player with translation toggle and click-to-seek ready.</span>
               </div>
               {completedSongId ? (
@@ -211,6 +216,9 @@ function inferMessage(type: JobType, status: JobStatus) {
   }
   if (type === 'alignment') {
     return 'Creating the timed lyric payload used by the player.'
+  }
+  if (type === 'lrc_import') {
+    return 'Parsing paired bilingual LRC timing and exporting the player payload.'
   }
   return 'Finishing the current job.'
 }

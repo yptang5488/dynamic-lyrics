@@ -4,7 +4,7 @@
 
 The project has completed a first end-to-end prototype pass for the dynamic lyrics app.
 
-The project now has an implemented backend path for `mp3 + lrc`, and the next step is to connect that path through the frontend import flow.
+The project now has an implemented `mp3 + lrc` path across backend and frontend, and the next step is to improve UX, warnings, and validation around that flow.
 
 Implemented focus:
 
@@ -79,7 +79,9 @@ Implemented focus:
 - added a React + Vite frontend under `frontend`
 - added route wiring for import, job, and player pages
 - built the import page for upload / YouTube source selection and lyric input
+- connected the upload flow to `POST /api/alignments/from-lrc` when an `.lrc` file is provided
 - built the job monitor page with polling and automatic workflow handoff
+- added `lrc_import` job messaging and player redirection support
 - built the player page with audio playback, active-line highlighting, click-to-seek, translation toggle, and auto-scroll
 - added frontend workflow persistence with session storage
 
@@ -123,11 +125,11 @@ Implemented focus:
 
 ## Next Recommended Steps
 
-1. connect the frontend import flow to `POST /api/alignments/from-lrc`
-2. add file upload UX for `.lrc` alongside audio upload
-3. improve job progress messages and warnings surfaced from LRC import jobs
-4. extend the data model to support segment-level timing and timed learning notes
-5. add frontend automated tests for the import, job, and player flow
+1. improve the `.lrc` upload UX with validation, file-state feedback, and warning display
+2. surface LRC import warnings more clearly on the job page
+3. extend the data model to support segment-level timing and timed learning notes
+4. add frontend automated tests for the import, job, and player flow
+5. decide whether to keep pasted lyrics as a visible fallback or move it into an advanced path
 
 ## Agreed LRC Interpretation Rule
 

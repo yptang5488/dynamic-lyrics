@@ -78,6 +78,7 @@ Implemented now:
 
 - end-to-end import -> job -> player flow
 - frontend pages for import, job monitoring, and playback
+- frontend upload flow wired to `audio + .lrc -> /api/alignments/from-lrc`
 - line-based lyric display with translation toggle and auto-scroll
 - backend export of player-ready song JSON
 - backend LRC import job flow for paired bilingual `.lrc` files
@@ -85,7 +86,6 @@ Implemented now:
 
 Still in progress:
 
-- wiring the frontend import flow to upload `.lrc` directly
 - adding segment or word-level timing
 - adding manual correction tools for low-confidence lines
 - adding timed notes and guided singing features
@@ -137,7 +137,7 @@ uv run --group dev pytest tests/backend
 
 ### Near Term
 
-- wire the frontend import page to the new `from-lrc` backend flow
+- improve the frontend upload UX around `.lrc` validation and warnings
 - improve job progress messages and error feedback
 - harden backend and frontend workflow validation
 

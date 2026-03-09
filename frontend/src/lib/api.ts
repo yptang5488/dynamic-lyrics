@@ -1,6 +1,7 @@
 import type {
   AlignmentRequest,
   JobStatusResponse,
+  LrcImportRequest,
   SongResponse,
   SourceDetailResponse,
   SourceResponse,
@@ -58,6 +59,16 @@ export async function getSource(sourceId: string) {
 
 export async function createAlignment(payload: AlignmentRequest) {
   const response = await fetch(resolveUrl('/api/alignments'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+  return parseResponse<{ jobId: string; status: string }>(response)
+}
+
+export async function createLrcImport(payload: LrcImportRequest) {
+  const response = await fetch(resolveUrl('/api/alignments/from-lrc'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

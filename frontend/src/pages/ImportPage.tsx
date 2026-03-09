@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { PageShell } from '../components/PageShell'
 import { SectionCard } from '../components/SectionCard'
 import { SourceModeSwitch } from '../components/SourceModeSwitch'
-import { createAlignment, importYoutube, uploadAudio } from '../lib/api'
+import { createAlignment, createLrcImport, importYoutube, uploadAudio } from '../lib/api'
 import { saveWorkflow } from '../lib/workflow'
 import type { SourceMode, WorkflowState } from '../types/api'
 
@@ -22,6 +22,7 @@ export function ImportPage() {
   const [lyricsText, setLyricsText] = useState('')
   const [translationsText, setTranslationsText] = useState('')
   const [audioFile, setAudioFile] = useState<File | null>(null)
+  const [lrcFile, setLrcFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,7 +40,12 @@ export function ImportPage() {
       return
     }
 
-    if (!lyricsText.trim()) {
+    if (sourceMode === 'upload' && !lrcFile && !lyricsText.trim()) {
+      setError('Please upload an LRC file or paste the original lyrics before continuing.')
+      return
+    }
+
+    if (sourceMode === 'youtube' && !lyricsText.trim()) {
       setError('Please paste the original lyrics before continuing.')
       return
     }
@@ -57,12 +63,18 @@ export function ImportPage() {
 
       if (sourceMode === 'upload' && audioFile) {
         const source = await uploadAudio(audioFile)
-        const alignment = await createAlignment({
-          sourceId: source.sourceId,
-          language,
-          lyricsText,
-          translations: toTranslations(translationsText),
-        })
+        const alignment = lrcFile
+          ? await createLrcImport({
+              sourceId: source.sourceId,
+              language,
+              lrcText: await lrcFile.text(),
+            })
+          : await createAlignment({
+              sourceId: source.sourceId,
+              language,
+              lyricsText,
+              translations: toTranslations(translationsText),
+            })
 
         const workflow = {
           ...workflowBase,
@@ -94,7 +106,7 @@ export function ImportPage() {
     <PageShell
       eyebrow="Phase 1 Web Player"
       title="Dynamic Lyrics studio"
-      subtitle="Import a song source, paste matching lyrics, and turn the backend timing flow into a player-ready learning session."
+      subtitle="Import a song source, prefer paired bilingual LRC timing when available, and turn the backend flow into a player-ready learning session."
       aside={<span className="eyebrow">Backend-connected prototype</span>}
     >
       <div className="page-grid">
@@ -102,8 +114,8 @@ export function ImportPage() {
           <span className="eyebrow">Import workflow</span>
           <div className="brand-title">Audio in, timed learning lyrics out.</div>
           <p className="lede">
-            This first frontend pass focuses on the full learner journey: choose a source, submit lyrics, watch job progress,
-            then rehearse with synchronized lines and optional translation.
+            This first frontend pass focuses on the full learner journey: choose a source, upload an LRC file or submit lyrics,
+            watch job progress, then rehearse with synchronized lines and optional translation.
           </p>
           <div className="hero-card__meta">
             <div className="metric">
@@ -111,8 +123,8 @@ export function ImportPage() {
               <span className="muted">Upload audio or import a single YouTube watch URL.</span>
             </div>
             <div className="metric">
-              <strong>Line-based sync</strong>
-              <span className="muted">Current backend uses mock timing but keeps the final player contract stable.</span>
+              <strong>LRC-first timing</strong>
+              <span className="muted">Upload paired bilingual LRC files for the most reliable sync path in the current prototype.</span>
             </div>
             <div className="metric">
               <strong>Translation ready</strong>
@@ -142,6 +154,22 @@ export function ImportPage() {
                         {audioFile ? `Selected: ${audioFile.name}` : 'Choose a local song file to create a ready source immediately.'}
                       </span>
                     </div>
+
+                    <label className="field-label" htmlFor="lrc-file" style={{ marginTop: 16 }}>LRC file</label>
+                    <div className="file-shell">
+                      <input
+                        id="lrc-file"
+                        className="file-input"
+                        type="file"
+                        accept=".lrc,text/plain"
+                        onChange={(event) => setLrcFile(event.target.files?.[0] ?? null)}
+                      />
+                      <span className="field-help">
+                        {lrcFile
+                          ? `Selected: ${lrcFile.name}`
+                          : 'Optional but recommended. Paired bilingual LRC import is the primary timing path.'}
+                      </span>
+                    </div>
                   </div>
                 ) : (
                   <div>
@@ -160,7 +188,7 @@ export function ImportPage() {
               </div>
             </SectionCard>
 
-            <SectionCard title="Lyric setup" subtitle="Prepare the content that will be aligned and displayed in the player.">
+            <SectionCard title="Lyric setup" subtitle="Upload an LRC file for timing, or use pasted lyrics as the fallback alignment path.">
               <div className="field-row field-row--dual">
                 <div>
                   <label className="field-label" htmlFor="language">Lyric language</label>
@@ -179,7 +207,7 @@ export function ImportPage() {
                 </div>
                 <div>
                   <label className="field-label" htmlFor="translation-hint">Translation mode</label>
-                  <input id="translation-hint" className="field" value="Optional, line-by-line" readOnly />
+                  <input id="translation-hint" className="field" value={lrcFile ? 'Embedded in paired bilingual LRC' : 'Optional, line-by-line'} readOnly />
                 </div>
               </div>
 
@@ -189,10 +217,15 @@ export function ImportPage() {
                   <textarea
                     id="lyrics"
                     className="textarea"
-                    placeholder={'Line 1\nLine 2\nLine 3'}
+                    placeholder={lrcFile ? 'Optional fallback if you want to compare against the uploaded LRC.' : 'Line 1\nLine 2\nLine 3'}
                     value={lyricsText}
                     onChange={(event) => setLyricsText(event.target.value)}
                   />
+                  <p className="field-help">
+                    {lrcFile
+                      ? 'When an LRC file is uploaded, the backend uses it as the primary timing source.'
+                      : 'Paste the original lyrics if you are not using an LRC file.'}
+                  </p>
                 </div>
                 <div>
                   <label className="field-label" htmlFor="translations">Translations</label>
@@ -202,14 +235,19 @@ export function ImportPage() {
                     placeholder={'Translation 1\nTranslation 2\nTranslation 3'}
                     value={translationsText}
                     onChange={(event) => setTranslationsText(event.target.value)}
+                    disabled={Boolean(lrcFile)}
                   />
-                  <p className="field-help">Keep the same number of non-empty lines as the original lyrics.</p>
+                  <p className="field-help">
+                    {lrcFile
+                      ? 'Translation lines come from the paired bilingual LRC in the current primary workflow.'
+                      : 'Keep the same number of non-empty lines as the original lyrics.'}
+                  </p>
                 </div>
               </div>
             </SectionCard>
           </div>
 
-          <SectionCard title="Create the sync job" subtitle="The backend will import the source first, then build line-level timings for the player.">
+          <SectionCard title="Create the sync job" subtitle="The backend will import the source first, then use LRC timing or fallback alignment to build the player payload.">
             <div className="quick-list">
               <div className="detail-row">
                 <span>Source mode</span>
@@ -220,8 +258,12 @@ export function ImportPage() {
                 <strong>{language.toUpperCase()}</strong>
               </div>
               <div className="detail-row">
+                <span>Timing input</span>
+                <strong>{lrcFile ? 'Paired bilingual LRC' : 'Pasted lyrics'}</strong>
+              </div>
+              <div className="detail-row">
                 <span>Translations</span>
-                <strong>{translationsText.trim() ? 'Included' : 'Hidden for now'}</strong>
+                <strong>{lrcFile ? 'From LRC' : translationsText.trim() ? 'Included' : 'Hidden for now'}</strong>
               </div>
             </div>
 

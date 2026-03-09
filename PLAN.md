@@ -39,6 +39,12 @@ Implemented in backend now:
 - `POST /api/alignments/from-lrc`
 - `lrc_import` job execution and song JSON export
 
+Implemented in frontend now:
+
+- upload flow support for audio plus paired bilingual `.lrc`
+- fallback to pasted-lyrics alignment when no `.lrc` file is provided
+- `lrc_import` job monitoring and player redirection
+
 Not implemented yet:
 
 - real audio-to-lyrics alignment
@@ -214,6 +220,7 @@ dynamic-lyrics/
 ### Implemented UI
 
 - import page for source selection and lyric input
+- import page support for audio plus `.lrc` upload as the primary timing path
 - job status page for import and alignment progress
 - player page using timed JSON from backend
 
@@ -249,7 +256,7 @@ Status: mostly complete
 
 Status: next major milestone
 
-- connect the frontend import flow to the implemented `mp3 + lrc` backend path
+- refine `.lrc` upload UX and warning handling in the frontend
 - keep raw-lyrics alignment as a fallback path
 - improve job progress reporting and failure visibility
 - add validation and workflow hardening across backend and frontend
