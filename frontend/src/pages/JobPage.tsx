@@ -39,17 +39,18 @@ export function JobPage() {
 
   useEffect(() => {
     const job = jobQuery.data
+    const songId = extractSongId(job?.result)
     if (!job) {
       return
     }
 
-    if ((job.type === 'alignment' || job.type === 'lrc_import') && job.status === 'done' && job.result?.songId) {
-      if (workflow && workflow.songId !== job.result.songId) {
-        saveWorkflow({ ...workflow, songId: job.result.songId })
+    if ((job.type === 'alignment' || job.type === 'lrc_import') && job.status === 'done' && songId) {
+      if (workflow && workflow.songId !== songId) {
+        saveWorkflow({ ...workflow, songId })
       }
 
       const timer = window.setTimeout(() => {
-        navigate(`/player/${job.result?.songId}`)
+        navigate(`/player/${songId}`)
       }, 900)
       return () => window.clearTimeout(timer)
     }
@@ -83,9 +84,10 @@ export function JobPage() {
   }, [jobQuery.data, navigate, workflow])
 
   const completedSongId = jobQuery.data?.type === 'alignment' || jobQuery.data?.type === 'lrc_import'
-    ? jobQuery.data.result?.songId
+    ? extractSongId(jobQuery.data.result)
     : undefined
   const displayedError = jobError ?? jobQuery.data?.errorMessage ?? (jobQuery.data?.status === 'failed' ? 'The current job failed.' : null)
+  const jobWarnings = extractWarnings(jobQuery.data?.result)
 
   const title = useMemo(() => {
     const type = jobQuery.data?.type
@@ -124,6 +126,7 @@ export function JobPage() {
               progress={jobQuery.data.progress}
               message={jobQuery.data.message ?? inferMessage(jobQuery.data.type, jobQuery.data.status)}
               error={displayedError}
+              warnings={jobWarnings}
             />
           ) : (
             <div className="error-state">Job details could not be loaded.</div>
@@ -191,6 +194,12 @@ export function JobPage() {
                 <strong>Song payload complete</strong>
                 <span className="muted">You are redirected to the player with translation toggle and click-to-seek ready.</span>
               </div>
+              {jobWarnings.length ? (
+                <div className="metric">
+                  <strong>Warnings captured</strong>
+                  <span className="muted">Review the import warnings before trusting every line timing without a quick check.</span>
+                </div>
+              ) : null}
               {completedSongId ? (
                 <button type="button" className="primary-button" onClick={() => navigate(`/player/${completedSongId}`)}>
                   Open player now
@@ -221,4 +230,17 @@ function inferMessage(type: JobType, status: JobStatus) {
     return 'Parsing paired bilingual LRC timing and exporting the player payload.'
   }
   return 'Finishing the current job.'
+}
+
+function extractWarnings(result: Record<string, unknown> | null | undefined) {
+  const warnings = result?.warnings
+  if (!Array.isArray(warnings)) {
+    return []
+  }
+
+  return warnings.filter((warning): warning is string => typeof warning === 'string' && warning.length > 0)
+}
+
+function extractSongId(result: Record<string, unknown> | null | undefined) {
+  return typeof result?.songId === 'string' && result.songId.length > 0 ? result.songId : undefined
 }

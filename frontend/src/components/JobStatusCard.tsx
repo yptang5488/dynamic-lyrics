@@ -7,9 +7,10 @@ interface JobStatusCardProps {
   progress: number
   message?: string | null
   error?: string | null
+  warnings?: string[]
 }
 
-export function JobStatusCard({ title, type, status, progress, message, error }: JobStatusCardProps) {
+export function JobStatusCard({ title, type, status, progress, message, error, warnings = [] }: JobStatusCardProps) {
   return (
     <section className="status-card">
       <div className="status-row">
@@ -31,6 +32,19 @@ export function JobStatusCard({ title, type, status, progress, message, error }:
           <strong>{progress}%</strong>
         </div>
         {error ? <div className="error-state">{error}</div> : null}
+        {warnings.length ? (
+          <div className="detail-list">
+            <div className="detail-row">
+              <span>Import warnings</span>
+              <strong>{warnings.length}</strong>
+            </div>
+            {warnings.map((warning) => (
+              <div key={warning} className="muted">
+                {warning}
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </section>
   )

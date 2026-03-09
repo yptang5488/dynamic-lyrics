@@ -34,7 +34,7 @@ export interface JobStatusResponse {
   status: JobStatus
   progress: number
   message?: string | null
-  result?: Record<string, string> | null
+  result?: Record<string, unknown> | null
   errorMessage?: string | null
 }
 

@@ -44,6 +44,7 @@ Implemented in frontend now:
 - upload flow support for audio plus paired bilingual `.lrc`
 - fallback to pasted-lyrics alignment when no `.lrc` file is provided
 - `lrc_import` job monitoring and player redirection
+- `lrc_import` warning display on the job page
 
 Not implemented yet:
 
@@ -258,7 +259,7 @@ Status: next major milestone
 
 - refine `.lrc` upload UX and warning handling in the frontend
 - keep raw-lyrics alignment as a fallback path
-- improve job progress reporting and failure visibility
+- improve job progress reporting, warnings, and failure visibility
 - add validation and workflow hardening across backend and frontend
 
 ### Phase 3 - Learning Tools
