@@ -127,10 +127,40 @@ Implemented focus:
 ## Next Recommended Steps
 
 1. improve the `.lrc` upload UX with validation, file-state feedback, and warning display
-2. extend the data model to support segment-level timing and timed learning notes
-3. add frontend automated tests for the import, job, and player flow
-4. decide whether to keep pasted lyrics as a visible fallback or move it into an advanced path
-5. improve backend warning granularity for LRC parsing edge cases
+2. add WhisperX-assisted global offset correction for LRC imports
+3. add correction metadata and warnings for offset application, anchor count, and skipped correction cases
+4. add frontend automated tests for the import, job, and player flow
+5. decide whether to keep pasted lyrics as a visible fallback or move it into an advanced path
+
+## Planned WhisperX LRC Correction
+
+WhisperX is planned as a timing correction layer for paired bilingual LRC imports.
+
+Planned first version:
+
+- keep LRC as the primary source of lyric text and coarse timing
+- run WhisperX on normalized audio to extract transcript anchors
+- match LRC original lines against WhisperX transcript segments
+- estimate a global timing offset using robust anchor matching
+- shift all LRC lyric blocks by the estimated offset when confidence is sufficient
+- skip correction and emit warnings when too few reliable anchors are found
+
+Implementation checklist:
+
+1. define correction metadata for `applied`, `offsetSeconds`, `anchorCount`, `method`, and warnings
+2. add a WhisperX adapter for transcript anchor extraction
+3. normalize LRC original lines and transcript segments for matching
+4. implement monotonic fuzzy matching to collect reliable anchors
+5. estimate a robust global offset from anchor deltas
+6. shift imported lyric blocks when the offset is safe to apply
+7. attach correction metadata to `lrc_import` job results
+8. add tests for stable offset, low-anchor skip, and unsafe-offset skip cases
+
+Planned follow-up work:
+
+- piecewise offset correction for drifting sources
+- finer local timing refinement inside each LRC block
+- beat-aware chunking or phrase grouping after the correction layer is stable
 
 ## Agreed LRC Interpretation Rule
 

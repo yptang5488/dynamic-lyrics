@@ -116,6 +116,31 @@ The current backend implementation also applies these practical rules:
 - if a translation line is missing, `end` falls back to the next original timestamp or source duration
 - standard `[ti:]` and `[ar:]` metadata can be used to fill song title and artist
 
+## Planned LRC Correction
+
+The next timing refinement layer is planned as WhisperX-assisted LRC correction.
+
+The intended first version is:
+
+- keep LRC as the primary source of lyric text and coarse timing
+- use WhisperX only as a timing correction layer, not as the main lyric source
+- extract transcript anchors from normalized audio
+- match LRC original lines against WhisperX transcript segments
+- estimate a global timing offset from reliable anchor matches
+- shift all LRC lyric blocks by that offset when confidence is high enough
+- skip correction and emit warnings when too few safe anchors are found
+
+Implementation checklist:
+
+- define correction metadata for `applied`, `offsetSeconds`, `anchorCount`, `method`, and warnings
+- add a WhisperX adapter for transcript anchor extraction
+- normalize LRC original lines and WhisperX transcript text for matching
+- match LRC lines against transcript segments with monotonic fuzzy matching
+- estimate a robust global offset from anchor deltas
+- shift imported LRC lyric blocks by the estimated offset when safe
+- include correction metadata in `lrc_import` job results
+- add tests for stable offset, low-anchor skip, and unsafe-offset skip cases
+
 ## Testing
 
 Backend tests already cover:
@@ -141,12 +166,14 @@ uv run --group dev pytest tests/backend
 - improve the frontend upload UX around `.lrc` validation and warnings
 - improve job progress messages and overall feedback quality
 - harden backend and frontend workflow validation
+- add WhisperX-assisted global offset correction for LRC imports
 
 ### Mid Term
 
 - support segment / word timing
 - add manual timing correction tools
 - add timed notes for vocabulary or phrase guidance
+- evaluate piecewise LRC drift correction after global offset is stable
 
 ### Later
 

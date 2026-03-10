@@ -13,6 +13,7 @@ from app.db.session import (
     utc_now,
 )
 from app.services.aligner_mock import MockAligner
+from app.services.lrc_correction import correct_lrc_lyrics
 from app.services.lrc_parser import build_paired_lrc_lyrics
 from app.services.lyrics_parser import parse_lyrics
 from app.services.song_builder import build_song
@@ -199,6 +200,21 @@ class JobRunner:
             if not lyrics:
                 raise RuntimeError("no lyric lines found in lrc input")
 
+            self._set_job(
+                job_id,
+                progress=45,
+                message="checking timing offset",
+            )
+            correction = correct_lrc_lyrics(
+                lyrics,
+                audio_path=source.get("normalized_path") or source.get("original_path"),
+                language=payload["language"],
+            )
+            lyrics = correction.lyrics
+            warnings.extend(
+                warning for warning in correction.warnings if warning not in warnings
+            )
+
             source_updates: dict[str, object] = {"updated_at": utc_now()}
             title = metadata.get("ti")
             artist = metadata.get("ar")
@@ -214,12 +230,19 @@ class JobRunner:
                 job_id,
                 progress=75,
                 message="building song payload",
-                result={"warnings": warnings} if warnings else None,
+                result={
+                    "warnings": warnings,
+                    "correction": correction.to_metadata(),
+                }
+                if warnings or correction.method != "off"
+                else None,
             )
             song = build_song(source, payload["language"], lyrics)
             result = {"songId": song["id"]}
             if warnings:
                 result["warnings"] = warnings
+            if correction.method != "off":
+                result["correction"] = correction.to_metadata()
             self._set_job(
                 job_id,
                 status="done",

@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from app.services.lrc_parser import build_paired_lrc_lyrics, parse_lrc
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_parse_lrc_collects_timestamped_entries_and_metadata() -> None:
@@ -75,7 +70,17 @@ def test_build_paired_lrc_lyrics_handles_missing_translation_with_fallback() -> 
 
 
 def test_build_paired_lrc_lyrics_matches_bang_bang_sample_rules() -> None:
-    lrc_text = (PROJECT_ROOT / "BANG BANG-MusicEnc.lrc").read_text(encoding="utf-8")
+    lrc_text = "\n".join(
+        [
+            "[00:00.000]LRC-toomic.com",
+            "[00:00.000]BANG BANG - IVE (아이브)",
+            "[00:06.000]It's a new scene It's aggressive",
+            "[00:08.000]이미 알아차렸겠지",
+            "[00:10.000]应该早就已经察觉",
+            "[00:10.000]그치 언니",
+            "[00:11.000]对吧姐姐",
+        ]
+    )
 
     lyrics, _, warnings = build_paired_lrc_lyrics(lrc_text, duration=172.0)
 

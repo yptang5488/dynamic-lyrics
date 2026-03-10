@@ -49,6 +49,7 @@ Implemented in frontend now:
 Not implemented yet:
 
 - real audio-to-lyrics alignment
+- WhisperX-assisted LRC offset correction
 - segment or word timing
 - manual timing correction tools
 - timed learning notes editor
@@ -133,6 +134,7 @@ Recommended song shape:
 - `audio only`: not reliable for full lyric alignment
 - `audio + lyrics`: recommended and supported direction
 - `audio + paired bilingual lrc`: planned primary direction for reliable timing import
+- planned refinement layer: WhisperX-assisted correction of LRC timing drift
 - current prototype supports line-level timing only
 - future versions can add segment / word alignment and manual correction tools
 
@@ -153,6 +155,36 @@ So the importer should build line payloads with:
 - `translation = following translated lyric`
 
 Credits and empty spacer rows should be ignored when producing player lyrics.
+
+### Planned WhisperX Correction Layer
+
+WhisperX is planned as a correction layer for paired bilingual LRC imports, not as the primary lyric source.
+
+First planned version:
+
+- keep LRC text and coarse timing as the base data
+- run WhisperX on normalized audio to extract transcript anchors
+- match LRC original lines against WhisperX transcript segments
+- estimate a global offset from reliable anchor matches
+- shift the imported lyric blocks by that offset when confidence is high enough
+- emit warnings instead of forcing correction when anchors are too sparse or unsafe
+
+Implementation checklist:
+
+1. define correction metadata for `applied`, `offsetSeconds`, `anchorCount`, `method`, and warnings
+2. add a WhisperX adapter for transcript anchor extraction
+3. normalize LRC original lines and transcript segments for matching
+4. implement monotonic fuzzy matching to collect anchors
+5. estimate a robust global offset from anchor deltas
+6. shift imported lyric blocks when the estimated offset is safe
+7. attach correction metadata to `lrc_import` job results
+8. add tests for stable offset, low-anchor skip, and unsafe-offset skip cases
+
+Later planned versions:
+
+- piecewise drift correction for songs that move over time
+- finer local timing refinement within each line block
+- beat-aware chunking after offset correction is stable
 
 ## Current Architecture
 
@@ -260,6 +292,7 @@ Status: next major milestone
 - refine `.lrc` upload UX and warning handling in the frontend
 - keep raw-lyrics alignment as a fallback path
 - improve job progress reporting, warnings, and failure visibility
+- add WhisperX-assisted global offset correction for LRC imports
 - add validation and workflow hardening across backend and frontend
 
 ### Phase 3 - Learning Tools

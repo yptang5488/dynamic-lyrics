@@ -21,6 +21,9 @@ class Settings:
     raw_dir: Path = RAW_DIR
     normalized_dir: Path = NORMALIZED_DIR
     export_dir: Path = EXPORT_DIR
+    lrc_correction_mode: str = "off"
+    lrc_min_anchor_count: int = 3
+    lrc_max_offset_seconds: float = 12.0
 
     def ensure_storage(self) -> None:
         self.raw_dir.mkdir(parents=True, exist_ok=True)
