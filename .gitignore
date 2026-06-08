@@ -9,11 +9,21 @@ wheels/
 # Virtual environments
 .venv
 
+# OS metadata
+.DS_Store
+
+# Local environment variables
+.env
+.env.*
+!.env.example
+
 # Runtime data
 app.db
 data/raw/
 data/normalized/
 data/export/
+.spotdl-cache
+WHISPERX_LATEST_OUTPUT.md
 
 # testin model
 whisperx-poc/
