@@ -43,9 +43,15 @@ Edit `.env.local` and fill in real values:
 ```bash
 SPOTIFY_CLIENT_ID="your-real-client-id"
 SPOTIFY_CLIENT_SECRET="your-real-client-secret"
+SPOTDL_AUDIO_PROVIDERS="youtube,piped"
+SPOTDL_PREFER_DONT_FILTER="true"
 ```
 
 Do not commit `.env.local`. It is ignored by `.gitignore`.
+
+`SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are still needed because `spotdl` uses Spotify for song metadata lookup. The audio file can still be downloaded from YouTube through the configured audio provider.
+
+The default app behavior keeps the conservative provider order. For this local environment, `SPOTDL_AUDIO_PROVIDERS="youtube,piped"` skips YouTube Music when it is blocked, and `SPOTDL_PREFER_DONT_FILTER="true"` tries `--dont-filter-results` before the stricter search filter.
 
 ## Load Local Environment Variables
 
@@ -108,6 +114,7 @@ uv run python main.py
 - `The access token expired`: confirm `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are loaded in the current shell.
 - `You are blocked by YouTube Music`: current integration should fallback to `youtube` and then `piped`.
 - `Filtered to 0 results`: current integration should retry with `--dont-filter-results`.
+- Repeated YouTube Music blocks or filtered results: set `SPOTDL_AUDIO_PROVIDERS="youtube,piped"` and `SPOTDL_PREFER_DONT_FILTER="true"` in `.env.local`.
 - No audio file after a zero exit code: current integration treats this as a failed attempt and continues fallback.
 
 ## Maintenance Notes

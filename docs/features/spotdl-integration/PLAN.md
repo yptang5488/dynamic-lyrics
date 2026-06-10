@@ -1,7 +1,7 @@
 # Implementation Plan: spotdl Integration
 
-Status: Active
-Last Updated: 2026-06-03
+Status: Completed
+Last Updated: 2026-06-10
 Related spec:
 Related session log:
 Related task / bug / branch:
@@ -19,7 +19,7 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 - Configure Spotify credentials through environment variables, not hardcoded scripts or committed files:
   - `SPOTIFY_CLIENT_ID`
   - `SPOTIFY_CLIENT_SECRET`
-- Let `app/services/spotdl_import.py` handle `spotdl 4.4.3` CLI arguments, provider fallback, and retry without strict result filtering.
+- Let `app/services/spotdl_import.py` handle `spotdl 4.4.3` CLI arguments, provider fallback, and configurable retry without strict result filtering.
 
 ## Task Breakdown
 
@@ -36,15 +36,16 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 - [x] Add unit tests for `spotdl_import.py` fallback behavior by mocking subprocess execution and output files.
 - [x] Document local Spotify environment variables with `.env.example` and ignore local dotenv files.
 - [x] Document local setup for `uv tool install --editable` and smoke-test commands.
-- [ ] Run a full app flow test from Spotify import through generated audio/LRC output and player usage.
+- [x] Run a full app flow test from Spotify import through generated audio/LRC output and player usage.
+- [x] Make `spotdl` provider order and unfiltered search preference configurable for local environments where YouTube Music is blocked or strict filtering consistently removes valid results.
 
 ## Dependencies / Order
 
 - `uv tool install --editable /Users/tangyiping/Documents/source/spotdl` must remain installed or otherwise `spotdl` must be available on `PATH`.
-- `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` should be exported before running smoke tests or backend import flows that require Spotify metadata.
+- `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` must contain real Spotify Developer credentials before running smoke tests or backend import flows that require Spotify metadata.
 - Secret cleanup in the external `spotdl` repo is complete, but any previously exposed Spotify credentials should still be rotated if the script was committed or shared.
 - Unit tests should mock `spotdl` subprocess behavior instead of depending on live Spotify, YouTube, or Piped services.
-- Full app flow testing should happen after credentials and CLI smoke tests are confirmed working in the local shell used to start the backend.
+- Full app flow testing completed after credentials and CLI smoke tests were confirmed working in the local shell used to start the backend.
 
 ## Progress Notes
 
@@ -55,12 +56,13 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 - Done: `.env.example` now documents required Spotify variables, while `.gitignore` excludes local dotenv files.
 - Done: mocked tests cover provider fallback, `--dont-filter-results` retry, zero-exit/no-audio handling, and credential argument construction.
 - Done: `LOCAL_SETUP.md` documents `uv tool` install, `.env.local` setup, environment loading, smoke tests, and troubleshooting.
-- Next: run a full app flow test from Spotify import through generated audio/LRC output and player usage.
+- Done: `.env.local` now contains non-placeholder Spotify credentials, `spotdl_smoke.py` downloaded `NEWJEANS - Ditto` audio and LRC, and the API flow produced a song/player payload.
+- Final verification: upload audio returned `201`, LRC import job completed as `done`, fetched song had `41` lyric lines, and backend regression tests passed.
+- Done: `SPOTDL_AUDIO_PROVIDERS` and `SPOTDL_PREFER_DONT_FILTER` allow this local setup to prefer `youtube --dont-filter-results` while preserving conservative defaults for other environments.
 
 ## Open Questions
 
 - Should generated `.lrc` files from `spotdl` become part of the primary import flow, or remain optional output for later alignment work?
-- Should provider order and retry behavior become configurable through environment variables or stay hardcoded until another provider issue appears?
 - Should `dynamic-lyrics` support an explicit `SPOTDL_BIN` setting to avoid relying on `PATH`?
 
 ## Plan Changes
@@ -87,3 +89,19 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 
 - Added `LOCAL_SETUP.md` for repeatable local `spotdl` setup and smoke testing.
 - Updated next execution step to full app flow testing.
+
+### 2026-06-10 - Blocked
+
+- Full app flow testing is blocked because `.env.local` still contains placeholder Spotify credentials.
+- Smoke test currently fails during client-credentials token exchange with `HTTP Error 400: Bad Request`.
+
+### 2026-06-10 - Completed
+
+- Unblocked full app flow after `.env.local` was updated with real Spotify credentials.
+- Verified smoke download and existing upload + LRC API flow through song/player payload generation.
+- Marked the implementation plan completed; remaining open questions can become future feature work if needed.
+
+### 2026-06-10 - Updated
+
+- Added configurable `spotdl` provider order and filter preference for local environments.
+- Documented `SPOTDL_AUDIO_PROVIDERS="youtube,piped"` and `SPOTDL_PREFER_DONT_FILTER="true"` as the recommended local setup when YouTube Music is blocked and strict YouTube filtering drops valid results.

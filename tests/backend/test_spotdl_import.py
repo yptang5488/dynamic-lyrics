@@ -120,3 +120,49 @@ def test_build_spotdl_command_includes_credentials(monkeypatch) -> None:
     assert command[command.index("--client-id") + 1] == "client-id"
     assert command[command.index("--client-secret") + 1] == "client-secret"
     assert command[command.index("--auth-token") + 1] == "token"
+
+
+def test_import_spotify_audio_uses_configured_provider_order(tmp_path: Path, monkeypatch) -> None:
+    settings = Settings(raw_dir=tmp_path / "raw")
+    settings.raw_dir.mkdir(parents=True)
+    monkeypatch.setenv("SPOTDL_AUDIO_PROVIDERS", "youtube,piped")
+    monkeypatch.setattr(spotdl_import, "settings", settings)
+    monkeypatch.setattr(spotdl_import, "_get_spotify_auth_token", lambda: None)
+
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], *, show_output: bool) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        output_dir = Path(command[command.index("--output") + 1])
+        (output_dir / "downloaded.mp3").write_bytes(b"audio")
+        return subprocess.CompletedProcess(command, 0, stdout="Downloaded", stderr="")
+
+    monkeypatch.setattr(spotdl_import, "_run_spotdl_command", fake_run)
+
+    spotdl_import.import_spotify_audio("source", "NewJeans - Ditto")
+
+    assert [call[call.index("--audio") + 1] for call in calls] == ["youtube"]
+
+
+def test_import_spotify_audio_can_prefer_unfiltered_search(tmp_path: Path, monkeypatch) -> None:
+    settings = Settings(raw_dir=tmp_path / "raw")
+    settings.raw_dir.mkdir(parents=True)
+    monkeypatch.setenv("SPOTDL_AUDIO_PROVIDERS", "youtube,piped")
+    monkeypatch.setenv("SPOTDL_PREFER_DONT_FILTER", "true")
+    monkeypatch.setattr(spotdl_import, "settings", settings)
+    monkeypatch.setattr(spotdl_import, "_get_spotify_auth_token", lambda: None)
+
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], *, show_output: bool) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        output_dir = Path(command[command.index("--output") + 1])
+        (output_dir / "downloaded.mp3").write_bytes(b"audio")
+        return subprocess.CompletedProcess(command, 0, stdout="Downloaded", stderr="")
+
+    monkeypatch.setattr(spotdl_import, "_run_spotdl_command", fake_run)
+
+    spotdl_import.import_spotify_audio("source", "NewJeans - Ditto")
+
+    assert calls[0][calls[0].index("--audio") + 1] == "youtube"
+    assert "--dont-filter-results" in calls[0]

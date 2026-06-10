@@ -24,6 +24,7 @@ SPOTDL_TRY_NEXT_PROVIDER_MARKERS = (
     "you are blocked by youtube music",
     *SPOTDL_RETRY_WITHOUT_FILTER_MARKERS,
 )
+TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True)
@@ -44,9 +45,9 @@ def import_spotify_audio(
     last_output = ""
     auth_token = _get_spotify_auth_token()
     downloaded = False
-    for provider in SPOTDL_AUDIO_PROVIDERS:
-        for disable_filter in (False, True):
-            if disable_filter and not _should_retry_without_filter(last_output):
+    for provider in _get_spotdl_audio_providers():
+        for disable_filter in _get_filter_attempt_order():
+            if disable_filter and not _env_flag("SPOTDL_PREFER_DONT_FILTER") and not _should_retry_without_filter(last_output):
                 continue
 
             command = _build_spotdl_command(
@@ -201,6 +202,27 @@ def _should_retry_without_filter(output: str) -> bool:
 def _should_try_next_provider(output: str) -> bool:
     normalized = output.lower()
     return any(marker in normalized for marker in SPOTDL_TRY_NEXT_PROVIDER_MARKERS)
+
+
+def _get_spotdl_audio_providers() -> tuple[str, ...]:
+    raw_value = os.getenv("SPOTDL_AUDIO_PROVIDERS")
+    if raw_value is None:
+        return SPOTDL_AUDIO_PROVIDERS
+
+    providers = tuple(provider.strip() for provider in raw_value.split(",") if provider.strip())
+    if not providers:
+        raise RuntimeError("SPOTDL_AUDIO_PROVIDERS must include at least one provider")
+    return providers
+
+
+def _get_filter_attempt_order() -> tuple[bool, ...]:
+    if _env_flag("SPOTDL_PREFER_DONT_FILTER"):
+        return (True, False)
+    return (False, True)
+
+
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in TRUTHY_ENV_VALUES
 
 
 def _pick_audio_file(output_dir: Path) -> Path:

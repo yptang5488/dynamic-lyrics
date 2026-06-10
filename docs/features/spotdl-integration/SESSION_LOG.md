@@ -1,7 +1,7 @@
 # Development Session Log
 
 Status: Current
-Last Verified: 2026-06-03
+Last Verified: 2026-06-10
 Scope: spotdl integration for Spotify audio import
 Related task / bug / branch: docs/features/spotdl-integration
 Source of Truth: Current code, current git diff, and current product behavior override this note.
@@ -12,7 +12,8 @@ Source of Truth: Current code, current git diff, and current product behavior ov
 - Confirmed implementation direction: install the local `spotdl` clone with `uv tool install --editable`, then call the `spotdl` CLI from `app/services/spotdl_import.py` as a subprocess.
 - Important ownership / architecture decisions: `dynamic-lyrics` owns orchestration, output discovery, and fallback policy; `spotdl` remains an isolated external CLI/tool environment.
 - Known pitfalls: `spotdl 4.4.3` uses `--format`, not `--output-format`; `spotdl` may return exit code 0 even when no audio file was produced; YouTube Music may be blocked; YouTube results may be filtered to zero; stale `~/.spotdl` tokens can cause 401 errors; previously exposed Spotify credentials should be rotated if they were committed or shared.
-- Open questions: whether generated `.lrc` should become part of the primary import flow, whether provider order should be configurable, whether to add an explicit `SPOTDL_BIN` setting, and whether to standardize on `direnv` or a startup script for loading local dotenv files.
+- Open questions: whether generated `.lrc` should become part of the primary import flow, whether to add an explicit `SPOTDL_BIN` setting, and whether to standardize on `direnv` or a startup script for loading local dotenv files.
+- Current blocker: none for the planned local `spotdl` integration work; remaining questions are future scope decisions.
 
 ## Timeline Log
 
@@ -103,3 +104,24 @@ Source of Truth: Current code, current git diff, and current product behavior ov
 - Added `docs/features/spotdl-integration/LOCAL_SETUP.md` as the repeatable local setup guide.
 - The guide covers `uv tool install --editable`, Spotify dotenv setup, manual or `direnv` environment loading, smoke test commands, backend startup, troubleshooting, and credential safety notes.
 - Impact: future setup instructions are separated from the implementation plan and session history.
+
+### 2026-06-10 00:00 - Blocked
+
+- Attempted to start the full app flow by running `spotdl_smoke.py` with `.env.local` loaded.
+- Result: smoke test failed before download with `HTTP Error 400: Bad Request` from Spotify token exchange.
+- Root cause: `.env.local` currently contains placeholder values from `.env.example`; safe env check confirmed both Spotify variables are set but still placeholder strings.
+- Next step: replace `.env.local` values with real Spotify Developer credentials, rerun the smoke test, then continue the upload + LRC app flow.
+
+### 2026-06-10 23:25 - Solution
+
+- `.env.local` was updated with non-placeholder Spotify credentials and verified without printing secret values.
+- `spotdl_smoke.py "NEWJEANS - Ditto"` succeeded, producing `NewJeans - Ditto.mp3` and `NewJeans - Ditto.lrc` under `data/raw/src_spotdl_8d4decb5_spotdl/`.
+- Ran the existing app flow with the generated files: uploaded audio through `/api/sources/upload-audio`, submitted LRC through `/api/alignments/from-lrc`, waited for `lrc_import` completion, and fetched the generated song payload.
+- Verification: upload returned `201`, job completed as `done`, generated song id was `song_src_f627b99d_bddd87`, fetched song had title `NewJeans - Ditto` and `41` lyric lines, and backend regression tests passed with `25 passed` in the current working tree.
+
+### 2026-06-10 23:40 - Decision
+
+- Confirmed `spotdl` still uses Spotify credentials for metadata lookup even when the final audio download comes from YouTube.
+- Observed `NEWJEANS - Cookie` flow: YouTube Music was blocked, strict YouTube filtering removed all candidates, and `youtube --dont-filter-results` selected `https://youtube.com/watch?v=VOmIplFAGeg` and downloaded successfully.
+- Added `SPOTDL_AUDIO_PROVIDERS` and `SPOTDL_PREFER_DONT_FILTER` so local environments can prefer `youtube --dont-filter-results` without changing conservative defaults for everyone.
+- Verification: backend tests passed with `27 passed` after adding configurable provider/filter behavior.
