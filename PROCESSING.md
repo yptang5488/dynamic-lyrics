@@ -23,10 +23,10 @@ Implemented focus:
 - mounted `/media` for local audio access
 - added project dependencies in `pyproject.toml`
 
-### Storage and Database
+### Storage
 
-- added SQLite initialization in `app/db/session.py`
-- created `sources`, `jobs`, and `songs` tables in `app/db/tables.py`
+- added JSON record storage in `app/db/session.py`
+- created `sources`, `jobs`, and `songs` storage directories under `data/`
 - created local storage folders under `data/raw`, `data/normalized`, and `data/export`
 
 ### Source Import
@@ -71,7 +71,7 @@ Implemented focus:
 ### Song Export
 
 - implemented frontend-ready song JSON builder in `app/services/song_builder.py`
-- stored exported payload in SQLite and `data/export`
+- stored exported payload in JSON record storage and `data/export`
 - exposed `GET /api/songs/{songId}` for player consumption
 
 ### Frontend Prototype

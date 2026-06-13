@@ -19,7 +19,7 @@ The repository already includes a working local prototype.
 
 Implemented today:
 
-- FastAPI backend with SQLite metadata storage
+- FastAPI backend with JSON file storage
 - React + Vite frontend with import, job, and player pages
 - audio upload flow
 - YouTube import job flow
@@ -159,8 +159,8 @@ Credits and empty spacer rows should be ignored when producing player lyrics.
 ### Backend
 
 - FastAPI API app
-- SQLite for metadata and exported song payloads
-- local file storage under `data/`
+- JSON records for metadata and player payloads under `data/sources`, `data/jobs`, and `data/songs`
+- local media and export storage under `data/`
 - in-process threaded jobs for YouTube import and alignment
 
 ### Frontend

@@ -20,7 +20,7 @@ The current backend direction is `mp3 + lrc`, using paired bilingual LRC files a
 
 ## Current Stack
 
-- backend: FastAPI, Pydantic, SQLite, local file storage
+- backend: FastAPI, Pydantic, JSON file storage
 - frontend: React, TypeScript, Vite, React Router, TanStack Query
 - jobs: in-process local worker threads
 - media tooling: optional `ffmpeg`, `ffprobe`, and `yt-dlp`
@@ -62,7 +62,7 @@ If these tools are missing, some flows either fall back to a simpler path or are
 4. After the import / LRC / alignment job completes, the generated song appears in the library if its source is ready.
 5. Maintainers can use `Remove` on a library card to hide duplicate or test songs from the library.
 
-Library entries are backed by SQLite `songs` records whose related `sources` row is `ready`. Local audio files live under `data/raw/...`; removing a song from the library deletes only the `songs` record and leaves the source record and local media file intact.
+Library entries are backed by file-based JSON records under `data/songs`, with related source state under `data/sources`. Local audio files live under `data/raw/...`; removing a song from the library deletes only the song JSON record and leaves the source record and local media file intact.
 
 More detail: `docs/features/private-song-library/WORKFLOW.md`.
 

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
-import sqlite3
-from contextlib import contextmanager
+import threading
 from datetime import datetime, timezone
-from typing import Any, Iterator
+from pathlib import Path
+from typing import Any
 
 from app.config import settings
-from app.db.tables import JOB_TABLE_SQL, SONG_TABLE_SQL, SOURCE_TABLE_SQL
+
+
+TABLES = {"sources", "jobs", "songs"}
+_LOCK = threading.RLock()
 
 
 def utc_now() -> str:
@@ -16,77 +19,57 @@ def utc_now() -> str:
 
 def init_db() -> None:
     settings.ensure_storage()
-    with get_connection() as connection:
-        connection.execute(SOURCE_TABLE_SQL)
-        connection.execute(JOB_TABLE_SQL)
-        connection.execute(SONG_TABLE_SQL)
-        _ensure_job_message_column(connection)
-        recover_stale_jobs(connection)
-        connection.commit()
-
-
-@contextmanager
-def get_connection() -> Iterator[sqlite3.Connection]:
-    connection = sqlite3.connect(settings.db_path, check_same_thread=False)
-    connection.row_factory = sqlite3.Row
-    try:
-        yield connection
-    finally:
-        connection.close()
+    for table in TABLES:
+        _table_dir(table).mkdir(parents=True, exist_ok=True)
+    recover_stale_jobs()
 
 
 def insert_record(table: str, payload: dict[str, Any]) -> None:
-    columns = ", ".join(payload.keys())
-    placeholders = ", ".join([":" + key for key in payload])
-    with get_connection() as connection:
-        connection.execute(
-            f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",
-            payload,
-        )
-        connection.commit()
+    _validate_table(table)
+    record_id = payload["id"]
+    with _LOCK:
+        path = _record_path(table, record_id)
+        if path.exists():
+            raise ValueError(f"{table} record already exists: {record_id}")
+        _write_json(path, payload)
 
 
 def update_record(table: str, record_id: str, payload: dict[str, Any]) -> None:
-    payload = dict(payload)
-    payload["id"] = record_id
-    assignments = ", ".join([f"{key} = :{key}" for key in payload if key != "id"])
-    with get_connection() as connection:
-        connection.execute(
-            f"UPDATE {table} SET {assignments} WHERE id = :id",
-            payload,
-        )
-        connection.commit()
+    _validate_table(table)
+    with _LOCK:
+        existing = fetch_one(table, record_id) or {"id": record_id}
+        existing.update(payload)
+        existing["id"] = record_id
+        _write_json(_record_path(table, record_id), existing)
 
 
 def delete_record(table: str, record_id: str) -> bool:
-    with get_connection() as connection:
-        cursor = connection.execute(f"DELETE FROM {table} WHERE id = ?", (record_id,))
-        connection.commit()
-    return cursor.rowcount > 0
+    _validate_table(table)
+    with _LOCK:
+        path = _record_path(table, record_id)
+        if not path.exists():
+            return False
+        path.unlink()
+        return True
 
 
 def fetch_one(table: str, record_id: str) -> dict[str, Any] | None:
-    with get_connection() as connection:
-        row = connection.execute(
-            f"SELECT * FROM {table} WHERE id = ?",
-            (record_id,),
-        ).fetchone()
-    return dict(row) if row else None
+    _validate_table(table)
+    with _LOCK:
+        path = _record_path(table, record_id)
+        if not path.exists():
+            return None
+        return _read_json(path)
 
 
 def fetch_ready_song_rows() -> list[dict[str, Any]]:
-    with get_connection() as connection:
-        rows = connection.execute(
-            """
-            SELECT songs.*
-            FROM songs
-            JOIN sources ON sources.id = songs.source_id
-            WHERE sources.status = ?
-            ORDER BY songs.created_at DESC
-            """,
-            ("ready",),
-        ).fetchall()
-    return [dict(row) for row in rows]
+    with _LOCK:
+        rows: list[dict[str, Any]] = []
+        for song in _read_table("songs"):
+            source = fetch_one("sources", song.get("source_id", ""))
+            if source and source.get("status") == "ready":
+                rows.append(song)
+    return sorted(rows, key=lambda row: row.get("created_at", ""), reverse=True)
 
 
 def json_dumps(value: Any) -> str:
@@ -99,86 +82,94 @@ def json_loads(value: str | None, default: Any) -> Any:
     return json.loads(value)
 
 
-def recover_stale_jobs(connection: sqlite3.Connection | None = None) -> None:
-    if connection is not None:
-        _recover_stale_jobs(connection)
-        return
-
-    with get_connection() as managed_connection:
-        _recover_stale_jobs(managed_connection)
-        managed_connection.commit()
-
-
-def _ensure_job_message_column(connection: sqlite3.Connection) -> None:
-    columns = {
-        row[1] for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
-    }
-    if "message" not in columns:
-        connection.execute("ALTER TABLE jobs ADD COLUMN message TEXT")
-
-
-def _recover_stale_jobs(connection: sqlite3.Connection) -> None:
+def recover_stale_jobs() -> None:
     timestamp = utc_now()
-    stale_jobs = connection.execute(
-        "SELECT id, type, source_id FROM jobs WHERE status IN ('queued', 'processing')"
-    ).fetchall()
-
-    if not stale_jobs:
-        return
-
     source_ids_to_fail: set[str] = set()
-    for job in stale_jobs:
-        connection.execute(
-            """
-            UPDATE jobs
-            SET status = ?,
-                progress = ?,
-                message = NULL,
-                error_message = ?,
-                updated_at = ?
-            WHERE id = ?
-            """,
-            (
-                "failed",
-                100,
-                "job interrupted during previous app shutdown",
-                timestamp,
+
+    with _LOCK:
+        for job in _read_table("jobs"):
+            if job.get("status") not in {"queued", "processing"}:
+                continue
+
+            update_record(
+                "jobs",
                 job["id"],
-            ),
-        )
-        if job["type"] in {"youtube_import", "spotify_import"} and job["source_id"]:
-            source_ids_to_fail.add(job["source_id"])
+                {
+                    "status": "failed",
+                    "progress": 100,
+                    "message": None,
+                    "error_message": "job interrupted during previous app shutdown",
+                    "updated_at": timestamp,
+                },
+            )
+            if job.get("type") in {"youtube_import", "spotify_import"} and job.get(
+                "source_id"
+            ):
+                source_ids_to_fail.add(job["source_id"])
 
-    for source_id in source_ids_to_fail:
-        connection.execute(
-            """
-            UPDATE sources
-            SET status = ?,
-                error_message = ?,
-                updated_at = ?
-            WHERE id = ? AND status IN ('queued', 'processing')
-            """,
-            (
-                "failed",
-                "source import interrupted during previous app shutdown",
-                timestamp,
-                source_id,
-            ),
-        )
+        for source_id in source_ids_to_fail:
+            source = fetch_one("sources", source_id)
+            if source and source.get("status") in {"queued", "processing"}:
+                update_record(
+                    "sources",
+                    source_id,
+                    {
+                        "status": "failed",
+                        "error_message": "source import interrupted during previous app shutdown",
+                        "updated_at": timestamp,
+                    },
+                )
 
-    connection.execute(
-        """
-        UPDATE sources
-        SET status = ?,
-            error_message = ?,
-            updated_at = ?
-        WHERE status = 'processing'
-          AND type = 'upload'
-          AND normalized_path IS NULL
-        """,
-        (
-            "failed",
-            "upload processing interrupted during previous app shutdown",
-            timestamp,
-        ),
+        for source in _read_table("sources"):
+            if (
+                source.get("status") == "processing"
+                and source.get("type") == "upload"
+                and source.get("normalized_path") is None
+            ):
+                update_record(
+                    "sources",
+                    source["id"],
+                    {
+                        "status": "failed",
+                        "error_message": "upload processing interrupted during previous app shutdown",
+                        "updated_at": timestamp,
+                    },
+                )
+
+
+def _read_table(table: str) -> list[dict[str, Any]]:
+    _validate_table(table)
+    directory = _table_dir(table)
+    if not directory.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for path in directory.glob("*.json"):
+        rows.append(_read_json(path))
+    return rows
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_suffix(f"{path.suffix}.tmp")
+    temp_path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True),
+        encoding="utf-8",
     )
+    temp_path.replace(path)
+
+
+def _record_path(table: str, record_id: str) -> Path:
+    return _table_dir(table) / f"{record_id}.json"
+
+
+def _table_dir(table: str) -> Path:
+    return settings.raw_dir.parent / table
+
+
+def _validate_table(table: str) -> None:
+    if table not in TABLES:
+        raise ValueError(f"unknown table: {table}")

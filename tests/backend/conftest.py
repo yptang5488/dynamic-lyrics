@@ -20,7 +20,6 @@ from app.config import Settings
 def test_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
     data_dir = tmp_path / "data"
     settings = Settings(
-        db_path=tmp_path / "test.db",
         raw_dir=data_dir / "raw",
         normalized_dir=data_dir / "normalized",
         export_dir=data_dir / "export",

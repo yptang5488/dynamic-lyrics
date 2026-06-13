@@ -39,16 +39,16 @@ Maintainers prepare songs first, then friends choose from the library and open t
 3. Select `Remove`.
 4. Confirm the removal prompt.
 
-Removal is conservative in the current MVP. It deletes only the `songs` table record, so the song disappears from the library and `GET /api/songs/{songId}` returns 404. It does not delete the related `sources` row or local media files.
+Removal is conservative in the current MVP. It deletes only the song JSON record, so the song disappears from the library and `GET /api/songs/{songId}` returns 404. It does not delete the related source JSON record or local media files.
 
 ## Catalog Source
 
 The library is not built by scanning local folders.
 
-Catalog entries come from SQLite:
+Catalog entries come from file-based JSON storage:
 
-- `songs`: stores the song id, title, artist, language, and full player payload in `lyrics_json`.
-- `sources`: stores the import source and readiness state.
+- `data/songs/{songId}.json`: stores the song id, title, artist, language, and full player payload in `lyrics_json`.
+- `data/sources/{sourceId}.json`: stores the import source and readiness state.
 
 `GET /api/songs` lists songs where the related source is `ready`. Invalid song payloads are skipped so one bad test record does not break the whole library.
 

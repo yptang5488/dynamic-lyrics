@@ -9,7 +9,6 @@ DATA_DIR = BASE_DIR / "data"
 RAW_DIR = DATA_DIR / "raw"
 NORMALIZED_DIR = DATA_DIR / "normalized"
 EXPORT_DIR = DATA_DIR / "export"
-DB_PATH = BASE_DIR / "app.db"
 
 
 @dataclass(frozen=True)
@@ -17,7 +16,6 @@ class Settings:
     app_name: str = "Dynamic Lyrics API"
     api_prefix: str = "/api"
     media_prefix: str = "/media"
-    db_path: Path = DB_PATH
     raw_dir: Path = RAW_DIR
     normalized_dir: Path = NORMALIZED_DIR
     export_dir: Path = EXPORT_DIR

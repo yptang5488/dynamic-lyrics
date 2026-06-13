@@ -25,7 +25,7 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 ## Task Breakdown
 
 - [x] Define the minimal catalog entry shape for list display: song id, title, artist, optional cover, language, tags, availability flags, and player route target.
-- [x] Verify where existing prepared songs are stored today and how `/api/songs/{songId}` loads song payloads from `app.db` or exported files.
+- [x] Verify where existing prepared songs are stored today and how `/api/songs/{songId}` loads song payloads from persisted storage or exported files.
 - [x] Choose the first catalog source for prepared songs: existing persisted songs first, then a manifest / seed script only if the current storage cannot support reliable listing.
 - [x] Add a backend song listing endpoint, likely `GET /api/songs`, returning lightweight catalog entries instead of full lyric payloads.
 - [x] Add backend tests for empty library, populated library, and missing / invalid song records that should not break the list.
@@ -52,7 +52,7 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 
 - Done: Chosen direction is a private curated song library, not an open arbitrary-download platform.
 - Done: Current architecture already has useful seams: backend `/media` serving, `/api/songs/{songId}`, player payloads, and lyric-line `notes` placeholders.
-- Done: Existing SQLite `songs` records are the first catalog source; exported JSON files are not required for the first listing endpoint.
+- Done: File-based `data/songs` JSON records are the catalog source; exported JSON files are not required for the first listing endpoint.
 - Done: Backend `GET /api/songs` returns lightweight player-ready catalog entries and skips invalid song payloads.
 - Done: Frontend library entry point lists prepared songs from `GET /api/songs` and links to `/player/:songId`.
 - Done: `/` is now the read-only friend library entry point; `/import` remains available as the maintainer import route.
@@ -66,7 +66,7 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 ## Open Questions
 
 - Should `GET /api/songs` list only successfully built player-ready songs, or also show draft / incomplete maintainer-prepared entries?
-- Should the first catalog source be the existing SQLite song records, exported song JSON payloads, or a checked-in manifest that points to prepared media files?
+- Should the first catalog source stay as `data/songs` JSON records, use exported song JSON payloads, or use a checked-in manifest that points to prepared media files?
 - What minimal fields should appear on the library card in the first version: cover art, language, tags, song duration, chant availability, or only title / artist?
 - What should the first `notes` schema contain: cheering phrase, pronunciation hint, meaning, timing cue, display priority, or tags?
 - Should private songs be created from a checked-in manifest that references external media files, or from an import script that scans a local content folder?
@@ -84,7 +84,7 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 
 ### 2026-06-13 - Completed Backend Catalog Listing
 
-- Confirmed existing SQLite `songs` records can support the first catalog source.
+- Confirmed persisted song records can support the first catalog source.
 - Added backend `GET /api/songs` with lightweight catalog entries and tests for empty, populated, invalid, and not-ready records.
 - Shifted next execution focus to frontend catalog API support and the library page.
 
@@ -98,13 +98,19 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 
 - Added backend song deletion for removing entries from the library.
 - Added a frontend remove action on library cards for duplicate or test songs.
-- Kept deletion conservative: remove only `songs` records, not sources or local media files.
+- Kept deletion conservative: remove only song records, not sources or local media files.
 
 ### 2026-06-13 - Documented Library Workflow
 
 - Updated README with the library route, maintainer import route, catalog source, cleanup behavior, and API coverage.
 - Added `WORKFLOW.md` for friend usage, maintainer add flow, cleanup flow, catalog source, and current limitations.
 - Shifted next execution focus to choosing the next feature step after the catalog MVP.
+
+### 2026-06-14 - Replaced SQLite With File Storage
+
+- Replaced SQLite-backed records with file-based JSON records under `data/sources`, `data/jobs`, and `data/songs` while preserving the existing storage API used by routes and workers.
+- Removed the obsolete SQLite table definitions.
+- Updated documentation to describe JSON file storage as the current catalog source.
 
 ### 2026-06-03 - Created
 
