@@ -24,6 +24,14 @@ export function SourceModeSwitch({ value, onChange }: SourceModeSwitchProps) {
         <strong>YouTube import</strong>
         Paste a single watch URL for personal testing.
       </button>
+      <button
+        type="button"
+        className={value === 'spotify' ? 'is-active' : ''}
+        onClick={() => onChange('spotify')}
+      >
+        <strong>Spotify import</strong>
+        Search or paste a Spotify link, then let spotdl fetch audio and LRC.
+      </button>
     </div>
   )
 }

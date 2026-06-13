@@ -16,7 +16,8 @@ from app.services.aligner_mock import MockAligner
 from app.services.lrc_parser import build_paired_lrc_lyrics
 from app.services.lyrics_parser import parse_lyrics
 from app.services.song_builder import build_song
-from app.services.source_service import fetch_source
+from app.services.source_service import complete_spotify_source_import, fetch_source
+from app.services.spotdl_import import import_spotify_audio
 from app.services.youtube_import import import_youtube_audio
 
 
@@ -32,6 +33,15 @@ class JobRunner:
             payload={"url": url},
         )
         self._spawn(job_id, self._run_youtube_import)
+        return job_id
+
+    def submit_spotify_import(self, source_id: str, query: str, language: str) -> str:
+        job_id = self._create_job(
+            job_type="spotify_import",
+            source_id=source_id,
+            payload={"query": query, "language": language},
+        )
+        self._spawn(job_id, self._run_spotify_import)
         return job_id
 
     def submit_alignment(
@@ -127,6 +137,52 @@ class JobRunner:
                 progress=100,
                 message="import completed",
                 result={"sourceId": source_id},
+            )
+        except Exception as exc:  # noqa: BLE001
+            update_record(
+                "sources",
+                source_id,
+                {
+                    "status": "failed",
+                    "error_message": str(exc),
+                    "updated_at": utc_now(),
+                },
+            )
+            self._fail_job(job_id, exc)
+
+    def _run_spotify_import(self, job_id: str) -> None:
+        job = self.get_job(job_id)
+        if not job:
+            return
+        payload = json_loads(job["payload_json"], {})
+        source_id = job["source_id"]
+
+        try:
+            self._set_job(job_id, status="processing", progress=10, message="downloading with spotdl")
+            update_record(
+                "sources", source_id, {"status": "processing", "updated_at": utc_now()}
+            )
+            import_result = import_spotify_audio(source_id, payload["query"])
+            source = complete_spotify_source_import(source_id, import_result)
+
+            result: dict[str, object] = {
+                "sourceId": source_id,
+                "audioPath": str(import_result.audio_path),
+                "lyricsPath": str(import_result.lyrics_path) if import_result.lyrics_path else None,
+                "hasGeneratedLrc": import_result.lyrics_path is not None,
+            }
+            if import_result.lyrics_path is not None:
+                self._set_job(job_id, progress=70, message="preparing lrc preview")
+                result["lrcText"] = import_result.lyrics_path.read_text(encoding="utf-8")
+            else:
+                result["warnings"] = ["spotdl did not generate an lrc file"]
+
+            self._set_job(
+                job_id,
+                status="done",
+                progress=100,
+                message="spotify import ready for lrc review",
+                result=result,
             )
         except Exception as exc:  # noqa: BLE001
             update_record(

@@ -20,6 +20,7 @@ Source of Truth: Current code, current git diff, current product behavior, and l
   - `SPOTIFY_CLIENT_ID`
   - `SPOTIFY_CLIENT_SECRET`
 - Let `app/services/spotdl_import.py` handle `spotdl 4.4.3` CLI arguments, provider fallback, and configurable retry without strict result filtering.
+- Next phase: expose the working `spotdl_import.py` flow through a backend `POST /api/sources/import-spotify` endpoint and background job.
 
 ## Task Breakdown
 
@@ -38,11 +39,19 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 - [x] Document local setup for `uv tool install --editable` and smoke-test commands.
 - [x] Run a full app flow test from Spotify import through generated audio/LRC output and player usage.
 - [x] Make `spotdl` provider order and unfiltered search preference configurable for local environments where YouTube Music is blocked or strict filtering consistently removes valid results.
+- [x] Add backend request/response schemas for Spotify import.
+- [x] Add source-service support for pending Spotify sources and completing them from `spotdl` output.
+- [x] Add job-runner support for background Spotify import.
+- [x] Add `POST /api/sources/import-spotify` route.
+- [x] Add backend tests for queued, successful, and failed Spotify import behavior.
+- [x] Add frontend Spotify import mode, API client call, and job-page redirect support.
+- [x] Add Spotify-generated LRC preview/edit step before creating the player payload.
 
 ## Dependencies / Order
 
 - `uv tool install --editable /Users/tangyiping/Documents/source/spotdl` must remain installed or otherwise `spotdl` must be available on `PATH`.
 - `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` must contain real Spotify Developer credentials before running smoke tests or backend import flows that require Spotify metadata.
+- Backend API work should reuse `spotdl_import.py` and existing job/source persistence rather than adding direct `spotdl` imports to request handlers.
 - Secret cleanup in the external `spotdl` repo is complete, but any previously exposed Spotify credentials should still be rotated if the script was committed or shared.
 - Unit tests should mock `spotdl` subprocess behavior instead of depending on live Spotify, YouTube, or Piped services.
 - Full app flow testing completed after credentials and CLI smoke tests were confirmed working in the local shell used to start the backend.
@@ -59,6 +68,9 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 - Done: `.env.local` now contains non-placeholder Spotify credentials, `spotdl_smoke.py` downloaded `NEWJEANS - Ditto` audio and LRC, and the API flow produced a song/player payload.
 - Final verification: upload audio returned `201`, LRC import job completed as `done`, fetched song had `41` lyric lines, and backend regression tests passed.
 - Done: `SPOTDL_AUDIO_PROVIDERS` and `SPOTDL_PREFER_DONT_FILTER` allow this local setup to prefer `youtube --dont-filter-results` while preserving conservative defaults for other environments.
+- Done: `POST /api/sources/import-spotify` now queues a `spotify_import` job, updates source state, returns generated LRC for review, and the frontend can start the flow.
+- Done: Spotify import now pauses at an editable LRC preview page so wrong-language generated lyrics can be replaced before creating the player.
+- Verification: backend tests passed with `30 passed`; frontend production build passed.
 
 ## Open Questions
 
@@ -105,3 +117,17 @@ Source of Truth: Current code, current git diff, current product behavior, and l
 
 - Added configurable `spotdl` provider order and filter preference for local environments.
 - Documented `SPOTDL_AUDIO_PROVIDERS="youtube,piped"` and `SPOTDL_PREFER_DONT_FILTER="true"` as the recommended local setup when YouTube Music is blocked and strict YouTube filtering drops valid results.
+
+### 2026-06-10 - Reopened
+
+- Reopened plan for the next phase: backend Spotify import API and background job integration.
+
+### 2026-06-10 - Completed
+
+- Added Spotify import API, background job, persistence flow, mocked backend tests, and frontend entry point.
+- Verified backend tests and frontend build.
+
+### 2026-06-11 - Updated
+
+- Changed Spotify import completion to return generated LRC for review instead of immediately creating a song/player payload.
+- Added `/spotify-preview/:jobId` frontend route for editing/replacing LRC before submitting the existing LRC import job.

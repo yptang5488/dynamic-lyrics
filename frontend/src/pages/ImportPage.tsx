@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { PageShell } from '../components/PageShell'
 import { SectionCard } from '../components/SectionCard'
 import { SourceModeSwitch } from '../components/SourceModeSwitch'
-import { createAlignment, createLrcImport, importYoutube, uploadAudio } from '../lib/api'
+import { createAlignment, createLrcImport, importSpotify, importYoutube, uploadAudio } from '../lib/api'
 import { saveWorkflow } from '../lib/workflow'
 import type { SourceMode, WorkflowState } from '../types/api'
 
@@ -19,6 +19,7 @@ export function ImportPage() {
   const [sourceMode, setSourceMode] = useState<SourceMode>('upload')
   const [language, setLanguage] = useState('ja')
   const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [spotifyQuery, setSpotifyQuery] = useState('')
   const [lyricsText, setLyricsText] = useState('')
   const [translationsText, setTranslationsText] = useState('')
   const [audioFile, setAudioFile] = useState<File | null>(null)
@@ -37,6 +38,11 @@ export function ImportPage() {
 
     if (sourceMode === 'youtube' && !youtubeUrl.trim()) {
       setError('Please paste a YouTube watch URL first.')
+      return
+    }
+
+    if (sourceMode === 'spotify' && !spotifyQuery.trim()) {
+      setError('Please paste a Spotify URL or search query first.')
       return
     }
 
@@ -87,6 +93,18 @@ export function ImportPage() {
         return
       }
 
+      if (sourceMode === 'spotify') {
+        const source = await importSpotify(spotifyQuery.trim(), language)
+        const workflow = {
+          ...workflowBase,
+          sourceId: source.sourceId,
+          sourceJobId: source.jobId,
+        }
+        saveWorkflow(workflow)
+        navigate(`/jobs/${source.jobId}`)
+        return
+      }
+
       const source = await importYoutube(youtubeUrl.trim())
       const workflow = {
         ...workflowBase,
@@ -107,7 +125,7 @@ export function ImportPage() {
       eyebrow="Phase 1 Web Player"
       title="Dynamic Lyrics studio"
       subtitle="Import a song source, prefer paired bilingual LRC timing when available, and turn the backend flow into a player-ready learning session."
-      aside={<span className="eyebrow">Backend-connected prototype</span>}
+      aside={<Link className="secondary-button" to="/">Back to library</Link>}
     >
       <div className="page-grid">
         <section className="hero-card">
@@ -119,8 +137,8 @@ export function ImportPage() {
           </p>
           <div className="hero-card__meta">
             <div className="metric">
-              <strong>2 source paths</strong>
-              <span className="muted">Upload audio or import a single YouTube watch URL.</span>
+              <strong>3 source paths</strong>
+              <span className="muted">Upload audio, import YouTube, or use Spotify metadata through spotdl.</span>
             </div>
             <div className="metric">
               <strong>LRC-first timing</strong>
@@ -171,7 +189,7 @@ export function ImportPage() {
                       </span>
                     </div>
                   </div>
-                ) : (
+                ) : sourceMode === 'youtube' ? (
                   <div>
                     <label className="field-label" htmlFor="youtube-url">YouTube watch URL</label>
                     <input
@@ -183,6 +201,19 @@ export function ImportPage() {
                       onChange={(event) => setYoutubeUrl(event.target.value)}
                     />
                     <p className="field-help">Playlist and radio parameters will be stripped before import.</p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="field-label" htmlFor="spotify-query">Spotify URL or search query</label>
+                    <input
+                      id="spotify-query"
+                      className="field"
+                      type="text"
+                      placeholder="https://open.spotify.com/track/... or NEWJEANS - Cookie"
+                      value={spotifyQuery}
+                      onChange={(event) => setSpotifyQuery(event.target.value)}
+                    />
+                    <p className="field-help">spotdl uses Spotify metadata, then downloads audio through the configured provider.</p>
                   </div>
                 )}
               </div>
@@ -235,10 +266,12 @@ export function ImportPage() {
                     placeholder={'Translation 1\nTranslation 2\nTranslation 3'}
                     value={translationsText}
                     onChange={(event) => setTranslationsText(event.target.value)}
-                    disabled={Boolean(lrcFile)}
+                    disabled={Boolean(lrcFile) || sourceMode === 'spotify'}
                   />
                   <p className="field-help">
-                    {lrcFile
+                    {sourceMode === 'spotify'
+                      ? 'Spotify imports use synced LRC generated by spotdl when available.'
+                      : lrcFile
                       ? 'Translation lines come from the paired bilingual LRC in the current primary workflow.'
                       : 'Keep the same number of non-empty lines as the original lyrics.'}
                   </p>
@@ -251,7 +284,7 @@ export function ImportPage() {
             <div className="quick-list">
               <div className="detail-row">
                 <span>Source mode</span>
-                <strong>{sourceMode === 'upload' ? 'Upload audio' : 'YouTube import'}</strong>
+                <strong>{sourceMode === 'upload' ? 'Upload audio' : sourceMode === 'youtube' ? 'YouTube import' : 'Spotify import'}</strong>
               </div>
               <div className="detail-row">
                 <span>Lyric language</span>
@@ -259,11 +292,11 @@ export function ImportPage() {
               </div>
               <div className="detail-row">
                 <span>Timing input</span>
-                <strong>{lrcFile ? 'Paired bilingual LRC' : 'Pasted lyrics'}</strong>
+                <strong>{sourceMode === 'spotify' ? 'spotdl synced LRC' : lrcFile ? 'Paired bilingual LRC' : 'Pasted lyrics'}</strong>
               </div>
               <div className="detail-row">
                 <span>Translations</span>
-                <strong>{lrcFile ? 'From LRC' : translationsText.trim() ? 'Included' : 'Hidden for now'}</strong>
+                <strong>{sourceMode === 'spotify' ? 'From spotdl LRC if available' : lrcFile ? 'From LRC' : translationsText.trim() ? 'Included' : 'Hidden for now'}</strong>
               </div>
             </div>
 

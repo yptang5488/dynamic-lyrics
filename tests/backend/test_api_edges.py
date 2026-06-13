@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.services.spotdl_import import SpotdlImportResult
 from app.db.session import insert_record, utc_now
 
 
@@ -75,6 +76,102 @@ def test_import_youtube_sanitizes_short_url_in_job_flow(
     assert job_payload["errorMessage"] == "simulated youtube import failure"
     assert source_payload["status"] == "failed"
     assert source_payload["errorMessage"] == "simulated youtube import failure"
+
+
+def test_import_spotify_downloads_source_and_returns_lrc_preview(
+    client, test_settings, wait_for_job_completion, monkeypatch
+) -> None:
+    captured: dict[str, str] = {}
+
+    def fake_import_spotify_audio(source_id: str, query: str) -> SpotdlImportResult:
+        captured["source_id"] = source_id
+        captured["query"] = query
+        output_dir = test_settings.raw_dir / f"{source_id}_spotdl"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        audio_path = output_dir / "NewJeans - Cookie.mp3"
+        lyrics_path = output_dir / "NewJeans - Cookie.lrc"
+        audio_path.write_bytes(b"fake audio bytes")
+        lyrics_path.write_text(
+            "\n".join(
+                [
+                    "[ti:Cookie]",
+                    "[ar:NewJeans]",
+                    "[00:01.000]Made a little cookie",
+                    "[00:03.000]做了一塊小餅乾",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        return SpotdlImportResult(
+            audio_path=audio_path,
+            lyrics_path=lyrics_path,
+            output_dir=output_dir,
+        )
+
+    monkeypatch.setattr(
+        "app.workers.job_runner.import_spotify_audio", fake_import_spotify_audio
+    )
+
+    response = client.post(
+        "/api/sources/import-spotify",
+        json={"query": "NEWJEANS - Cookie", "language": "ko"},
+    )
+    response.raise_for_status()
+    payload = response.json()
+
+    job_payload = wait_for_job_completion(client, payload["jobId"])
+    source_payload = client.get(f"/api/sources/{payload['sourceId']}").json()
+
+    assert captured == {
+        "source_id": payload["sourceId"],
+        "query": "NEWJEANS - Cookie",
+    }
+    assert payload["status"] == "queued"
+    assert job_payload["status"] == "done"
+    assert job_payload["type"] == "spotify_import"
+    assert job_payload["result"]["sourceId"] == payload["sourceId"]
+    assert job_payload["result"]["hasGeneratedLrc"] is True
+    assert "[ti:Cookie]" in job_payload["result"]["lrcText"]
+    assert "songId" not in job_payload["result"]
+    assert source_payload["type"] == "spotify"
+    assert source_payload["status"] == "ready"
+    assert source_payload["title"] == "NewJeans - Cookie"
+    assert source_payload["artist"] is None
+
+
+def test_import_spotify_job_failure_marks_source_failed(
+    client, wait_for_job_completion, monkeypatch
+) -> None:
+    def fake_import_spotify_audio(source_id: str, query: str) -> SpotdlImportResult:
+        raise RuntimeError("simulated spotify import failure")
+
+    monkeypatch.setattr(
+        "app.workers.job_runner.import_spotify_audio", fake_import_spotify_audio
+    )
+
+    response = client.post(
+        "/api/sources/import-spotify",
+        json={"query": "NEWJEANS - Cookie", "language": "ko"},
+    )
+    response.raise_for_status()
+    payload = response.json()
+
+    job_payload = wait_for_job_completion(client, payload["jobId"])
+    source_payload = client.get(f"/api/sources/{payload['sourceId']}").json()
+
+    assert job_payload["status"] == "failed"
+    assert job_payload["errorMessage"] == "simulated spotify import failure"
+    assert source_payload["status"] == "failed"
+    assert source_payload["errorMessage"] == "simulated spotify import failure"
+
+
+def test_import_spotify_rejects_empty_query(client) -> None:
+    response = client.post(
+        "/api/sources/import-spotify",
+        json={"query": "   ", "language": "ko"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_alignment_rejects_missing_source(client) -> None:

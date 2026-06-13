@@ -17,7 +17,7 @@ export function JobStatusCard({ title, type, status, progress, message, error, w
         <div>
           <h2>{title}</h2>
           <p className="section-subtitle">
-            {type === 'youtube_import' ? 'Import audio source' : 'Build timed lyrics'}
+            {type === 'youtube_import' || type === 'spotify_import' ? 'Import audio source' : 'Build timed lyrics'}
           </p>
         </div>
         <span className={`badge badge--${status}`}>{status}</span>

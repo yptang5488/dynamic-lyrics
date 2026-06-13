@@ -2,7 +2,7 @@
 
 Dynamic Lyrics is a local full-stack prototype for studying songs with synchronized lyrics.
 
-It already supports importing audio, attaching lyrics and optional translations, running a backend timing flow, importing paired bilingual LRC timing, and opening a web player that highlights lines in sync with playback.
+It already supports a private song library, importing audio, attaching lyrics and optional translations, running a backend timing flow, importing paired bilingual LRC timing, and opening a web player that highlights lines in sync with playback.
 
 The current backend direction is `mp3 + lrc`, using paired bilingual LRC files as the main source of lyric timing.
 
@@ -12,9 +12,11 @@ The current backend direction is `mp3 + lrc`, using paired bilingual LRC files a
 - paste original lyrics and optional line-by-line translations
 - create a background job for import and alignment
 - monitor workflow progress in the browser
+- list prepared songs in a private library
 - open a synchronized player with active-line highlighting
 - click any lyric line to seek playback to that point
 - toggle translation visibility for study or focus mode
+- remove duplicate or test songs from the library without deleting local media files
 
 ## Current Stack
 
@@ -52,6 +54,20 @@ If these tools are missing, some flows either fall back to a simpler path or are
 
 ## Current User Flow
 
+### Private Library Flow
+
+1. Friends open `/` to browse prepared songs.
+2. Friends choose a song card and open the existing `/player/:songId` synchronized lyrics player.
+3. Maintainers open `/import` to add a prepared song from upload, YouTube, or Spotify-backed import flows.
+4. After the import / LRC / alignment job completes, the generated song appears in the library if its source is ready.
+5. Maintainers can use `Remove` on a library card to hide duplicate or test songs from the library.
+
+Library entries are backed by SQLite `songs` records whose related `sources` row is `ready`. Local audio files live under `data/raw/...`; removing a song from the library deletes only the `songs` record and leaves the source record and local media file intact.
+
+More detail: `docs/features/private-song-library/WORKFLOW.md`.
+
+### Import-To-Player Flow
+
 1. Choose a source by uploading audio or pasting a YouTube watch URL.
 2. Preferred path: provide an `.lrc` file that already carries lyric timing.
 3. Fallback path: paste original lyrics and optional matching translations.
@@ -64,11 +80,14 @@ If these tools are missing, some flows either fall back to a simpler path or are
 - `GET /api/health`
 - `POST /api/sources/upload-audio`
 - `POST /api/sources/import-youtube`
+- `POST /api/sources/import-spotify`
 - `GET /api/sources/{sourceId}`
 - `POST /api/alignments`
 - `POST /api/alignments/from-lrc`
 - `GET /api/jobs/{jobId}`
+- `GET /api/songs`
 - `GET /api/songs/{songId}`
+- `DELETE /api/songs/{songId}`
 
 ## Development Status
 
@@ -77,11 +96,15 @@ Current state: working prototype
 Implemented now:
 
 - end-to-end import -> job -> player flow
+- private library entry point at `/`
+- maintainer import route at `/import`
 - frontend pages for import, job monitoring, and playback
+- frontend library listing, empty / loading / error states, and conservative song removal
 - frontend upload flow wired to `audio + .lrc -> /api/alignments/from-lrc`
 - job page warning display for `lrc_import` results
 - line-based lyric display with translation toggle and auto-scroll
 - backend export of player-ready song JSON
+- backend song catalog listing and song deletion APIs
 - backend LRC import job flow for paired bilingual `.lrc` files
 - backend pytest coverage for parser, song export, API edge cases, and alignment workflow
 
@@ -169,3 +192,4 @@ uv run --group dev pytest tests/backend
 - audio normalization quality depends on local `ffmpeg`
 - `segments` and `notes` in lyric lines are placeholders only
 - frontend automated tests are not implemented yet
+- library removal does not delete source rows or local media files

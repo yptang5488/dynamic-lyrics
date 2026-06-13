@@ -8,6 +8,7 @@ from fastapi import UploadFile
 from app.config import settings
 from app.db.session import fetch_one, insert_record, update_record, utc_now
 from app.services.audio_normalize import normalize_audio, probe_duration
+from app.services.spotdl_import import SpotdlImportResult
 
 
 def create_uploaded_source(file: UploadFile) -> dict:
@@ -77,6 +78,54 @@ def create_pending_youtube_source(url: str) -> dict:
     source = fetch_source(source_id)
     if source is None:
         raise RuntimeError("created source could not be reloaded")
+    return source
+
+
+def create_pending_spotify_source(query: str) -> dict:
+    source_id = f"src_{uuid4().hex[:8]}"
+    timestamp = utc_now()
+    insert_record(
+        "sources",
+        {
+            "id": source_id,
+            "type": "spotify",
+            "status": "queued",
+            "source_url": query,
+            "original_path": None,
+            "normalized_path": None,
+            "title": None,
+            "artist": None,
+            "duration": None,
+            "error_message": None,
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+    source = fetch_source(source_id)
+    if source is None:
+        raise RuntimeError("created source could not be reloaded")
+    return source
+
+
+def complete_spotify_source_import(source_id: str, result: SpotdlImportResult) -> dict:
+    normalized_path = normalize_audio(source_id, result.audio_path)
+    duration = probe_duration(result.audio_path)
+    update_record(
+        "sources",
+        source_id,
+        {
+            "status": "ready",
+            "original_path": str(result.audio_path),
+            "normalized_path": str(normalized_path),
+            "duration": duration,
+            "title": result.audio_path.stem,
+            "artist": None,
+            "updated_at": utc_now(),
+        },
+    )
+    source = fetch_source(source_id)
+    if source is None:
+        raise RuntimeError("completed source could not be reloaded")
     return source
 
 

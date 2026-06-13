@@ -13,7 +13,7 @@ Source of Truth: Current code, current git diff, and current product behavior ov
 - Important ownership / architecture decisions: `dynamic-lyrics` owns orchestration, output discovery, and fallback policy; `spotdl` remains an isolated external CLI/tool environment.
 - Known pitfalls: `spotdl 4.4.3` uses `--format`, not `--output-format`; `spotdl` may return exit code 0 even when no audio file was produced; YouTube Music may be blocked; YouTube results may be filtered to zero; stale `~/.spotdl` tokens can cause 401 errors; previously exposed Spotify credentials should be rotated if they were committed or shared.
 - Open questions: whether generated `.lrc` should become part of the primary import flow, whether to add an explicit `SPOTDL_BIN` setting, and whether to standardize on `direnv` or a startup script for loading local dotenv files.
-- Current blocker: none for the planned local `spotdl` integration work; remaining questions are future scope decisions.
+- Current blocker: none for the planned local `spotdl` integration and Spotify import API work; remaining questions are future scope decisions.
 
 ## Timeline Log
 
@@ -125,3 +125,34 @@ Source of Truth: Current code, current git diff, and current product behavior ov
 - Observed `NEWJEANS - Cookie` flow: YouTube Music was blocked, strict YouTube filtering removed all candidates, and `youtube --dont-filter-results` selected `https://youtube.com/watch?v=VOmIplFAGeg` and downloaded successfully.
 - Added `SPOTDL_AUDIO_PROVIDERS` and `SPOTDL_PREFER_DONT_FILTER` so local environments can prefer `youtube --dont-filter-results` without changing conservative defaults for everyone.
 - Verification: backend tests passed with `27 passed` after adding configurable provider/filter behavior.
+
+### 2026-06-10 23:55 - Solution
+
+- Added backend `POST /api/sources/import-spotify` with `SpotifyImportRequest` / `SpotifyImportResponse` schemas.
+- Added `spotify_import` background job behavior: create queued Spotify source, run `spotdl_import.py`, normalize/probe downloaded audio, mark source ready/failed, and build a song payload from generated LRC when available.
+- Added mocked backend tests for successful import with song generation, failed import source/job status, and empty query validation.
+- Added frontend Spotify import mode, API client call, job monitor labels, and direct player redirect when the `spotify_import` job returns a `songId`.
+- Verification: backend tests passed with `30 passed`; frontend production build passed.
+
+### 2026-06-11 00:05 - Root Cause
+
+- Problem: Spotify-imported `NEWJEANS - Cookie` reached the player page, but play did not work and lyric highlighting did not advance.
+- Root cause: `song_builder._playback_url` built media URLs with only `path.name`, producing `/media/raw/NewJeans - Cookie.mp3` for files downloaded under `data/raw/<source_id>_spotdl/`. The actual static file path needs the nested directory, for example `/media/raw/<source_id>_spotdl/NewJeans%20-%20Cookie.mp3`.
+- Fix: preserve the media path relative to `data/` and URL-encode it when building `playbackUrl`.
+- Local repair: updated the existing local `song_src_2a50ff98_881cae` payload in `app.db` to use the corrected URL and verified the media endpoint returns `200 audio/mpeg`.
+- Verification: backend tests passed with `31 passed`.
+
+### 2026-06-11 00:20 - Solution
+
+- Changed Spotify import behavior to stop at LRC review instead of automatically creating a song/player payload.
+- Backend `spotify_import` jobs now return `hasGeneratedLrc`, `lyricsPath`, and `lrcText` in the job result when spotdl generated an LRC.
+- Added frontend `/spotify-preview/:jobId` page where users can inspect, edit, or replace generated LRC before submitting the existing `/api/alignments/from-lrc` flow.
+- Reason: `syncedlyrics` can return wrong-language LRC for songs with multiple language/version matches, so automatic player creation was too trusting.
+- Verification: backend tests passed with `31 passed`; frontend production build passed.
+
+### 2026-06-11 00:30 - Decision
+
+- Repositioned the Spotify LRC preview page as a confirmation and replacement step, not a primary full-text editor.
+- Main actions now emphasize using the generated LRC or uploading a replacement `.lrc`; advanced text editing is hidden behind a secondary toggle for quick fixes.
+- Reason: asking users to paste or rewrite a full correct LRC is too difficult when the generated lyrics are the wrong language. Fine-grained lyric/timing correction belongs in a later player correction mode.
+- Verification: frontend production build passed.

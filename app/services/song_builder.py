@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 from uuid import uuid4
 
 from app.config import settings
@@ -52,4 +53,8 @@ def _playback_url(original_path: str | None) -> str:
     if not original_path:
         return ""
     path = Path(original_path)
-    return f"/media/raw/{path.name}"
+    try:
+        relative_path = path.resolve().relative_to(settings.raw_dir.parent.resolve())
+    except ValueError:
+        relative_path = Path("raw") / path.name
+    return f"{settings.media_prefix}/{quote(relative_path.as_posix())}"

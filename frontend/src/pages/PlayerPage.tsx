@@ -104,7 +104,7 @@ export function PlayerPage() {
         eyebrow="Player"
         title="Player unavailable"
         subtitle="The requested song payload could not be loaded from the backend."
-        aside={<Link className="secondary-button" to="/">Back to import</Link>}
+        aside={<Link className="secondary-button" to="/">Back to library</Link>}
       >
         <div className="error-state">{songQuery.error instanceof Error ? songQuery.error.message : 'Song not found.'}</div>
       </PageShell>
@@ -118,7 +118,7 @@ export function PlayerPage() {
       eyebrow="Learning Player"
       title={song.title}
       subtitle="Use line-level sync to rehearse the song, reveal or hide translations, and jump directly from the lyric list."
-      aside={<Link className="secondary-button" to="/">Import another song</Link>}
+      aside={<Link className="secondary-button" to="/">Back to library</Link>}
     >
       <div className="page-grid">
         <section className="player-card">

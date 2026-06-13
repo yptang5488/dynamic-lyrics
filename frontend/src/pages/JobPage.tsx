@@ -44,7 +44,7 @@ export function JobPage() {
       return
     }
 
-    if ((job.type === 'alignment' || job.type === 'lrc_import') && job.status === 'done' && songId) {
+    if ((job.type === 'alignment' || job.type === 'lrc_import' || job.type === 'spotify_import') && job.status === 'done' && songId) {
       if (workflow && workflow.songId !== songId) {
         saveWorkflow({ ...workflow, songId })
       }
@@ -53,6 +53,11 @@ export function JobPage() {
         navigate(`/player/${songId}`)
       }, 900)
       return () => window.clearTimeout(timer)
+    }
+
+    if (job.type === 'spotify_import' && job.status === 'done') {
+      navigate(`/spotify-preview/${job.id}`, { replace: true })
+      return
     }
 
     if (!workflow) {
@@ -83,7 +88,7 @@ export function JobPage() {
     }
   }, [jobQuery.data, navigate, workflow])
 
-  const completedSongId = jobQuery.data?.type === 'alignment' || jobQuery.data?.type === 'lrc_import'
+  const completedSongId = jobQuery.data?.type === 'alignment' || jobQuery.data?.type === 'lrc_import' || jobQuery.data?.type === 'spotify_import'
     ? extractSongId(jobQuery.data.result)
     : undefined
   const displayedError = jobError ?? jobQuery.data?.errorMessage ?? (jobQuery.data?.status === 'failed' ? 'The current job failed.' : null)
@@ -93,6 +98,9 @@ export function JobPage() {
     const type = jobQuery.data?.type
     if (type === 'youtube_import') {
       return 'Preparing your audio source'
+    }
+    if (type === 'spotify_import') {
+      return 'Importing Spotify source with spotdl'
     }
     if (type === 'alignment') {
       return 'Building synced lyrics'
@@ -153,7 +161,7 @@ export function JobPage() {
             </div>
             {!workflow ? (
               <div className="error-state" style={{ marginTop: 16 }}>
-                Workflow context is missing in session storage. This page can still show job status, but YouTube jobs cannot continue into alignment automatically.
+                Workflow context is missing in session storage. This page can still show job status, but source import jobs may not continue into the next step automatically.
               </div>
             ) : null}
           </SectionCard>
@@ -188,7 +196,7 @@ export function JobPage() {
             <div className="quick-list">
               <div className="metric">
                 <strong>Import complete</strong>
-                <span className="muted">YouTube sources continue into lyric alignment, while uploaded audio can finish through the LRC import path.</span>
+                <span className="muted">YouTube sources continue into lyric alignment, Spotify sources can open the generated player directly, and uploaded audio can finish through the LRC import path.</span>
               </div>
               <div className="metric">
                 <strong>Song payload complete</strong>
@@ -222,6 +230,9 @@ function inferMessage(type: JobType, status: JobStatus) {
   }
   if (type === 'youtube_import') {
     return 'Downloading audio and preparing a reusable local source.'
+  }
+  if (type === 'spotify_import') {
+    return 'Downloading with spotdl, importing synced LRC, and preparing the player payload.'
   }
   if (type === 'alignment') {
     return 'Creating the timed lyric payload used by the player.'

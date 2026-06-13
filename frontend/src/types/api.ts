@@ -1,10 +1,10 @@
-export type SourceMode = 'upload' | 'youtube'
+export type SourceMode = 'upload' | 'youtube' | 'spotify'
 
 export type SourceStatus = 'queued' | 'processing' | 'ready' | 'failed'
 
 export type JobStatus = 'queued' | 'processing' | 'done' | 'failed'
 
-export type JobType = 'youtube_import' | 'alignment' | 'lrc_import'
+export type JobType = 'youtube_import' | 'spotify_import' | 'alignment' | 'lrc_import'
 
 export interface SourceResponse {
   sourceId: string
@@ -23,6 +23,12 @@ export interface SourceDetailResponse {
 }
 
 export interface YoutubeImportResponse {
+  sourceId: string
+  jobId: string
+  status: JobStatus
+}
+
+export interface SpotifyImportResponse {
   sourceId: string
   jobId: string
   status: JobStatus
@@ -74,6 +80,17 @@ export interface SongResponse {
   artist: string
   audio: SongAudio
   lyrics: SongLyricLine[]
+}
+
+export interface SongCatalogEntry {
+  id: string
+  title: string
+  artist: string
+  language: string
+  hasLyrics: boolean
+  hasTranslation: boolean
+  hasNotes: boolean
+  playerPath: string
 }
 
 export interface WorkflowState {

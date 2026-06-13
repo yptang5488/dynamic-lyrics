@@ -5,10 +5,13 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from app.models.schemas import (
     SourceDetailResponse,
     SourceResponse,
+    SpotifyImportRequest,
+    SpotifyImportResponse,
     YoutubeImportRequest,
     YoutubeImportResponse,
 )
 from app.services.source_service import (
+    create_pending_spotify_source,
     create_pending_youtube_source,
     create_uploaded_source,
     fetch_source,
@@ -39,6 +42,18 @@ def import_youtube(payload: YoutubeImportRequest) -> YoutubeImportResponse:
     source = create_pending_youtube_source(sanitized_url)
     job_id = job_runner.submit_youtube_import(source["id"], sanitized_url)
     return YoutubeImportResponse(sourceId=source["id"], jobId=job_id, status="queued")
+
+
+@router.post(
+    "/import-spotify",
+    response_model=SpotifyImportResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def import_spotify(payload: SpotifyImportRequest) -> SpotifyImportResponse:
+    query = payload.query.strip()
+    source = create_pending_spotify_source(query)
+    job_id = job_runner.submit_spotify_import(source["id"], query, payload.language)
+    return SpotifyImportResponse(sourceId=source["id"], jobId=job_id, status="queued")
 
 
 @router.get("/{source_id}", response_model=SourceDetailResponse)
