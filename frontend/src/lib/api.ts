@@ -1,10 +1,12 @@
 import type {
   AlignmentRequest,
   JobStatusResponse,
+  SongCatalogEntry,
   LrcImportRequest,
   SongResponse,
   SourceDetailResponse,
   SourceResponse,
+  SpotifyImportResponse,
   YoutubeImportResponse,
 } from '../types/api'
 
@@ -52,6 +54,16 @@ export async function importYoutube(url: string) {
   return parseResponse<YoutubeImportResponse>(response)
 }
 
+export async function importSpotify(query: string, language: string) {
+  const response = await fetch(resolveUrl('/api/sources/import-spotify'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, language }),
+  })
+
+  return parseResponse<SpotifyImportResponse>(response)
+}
+
 export async function getSource(sourceId: string) {
   const response = await fetch(resolveUrl(`/api/sources/${sourceId}`))
   return parseResponse<SourceDetailResponse>(response)
@@ -85,6 +97,21 @@ export async function getJob(jobId: string) {
 export async function getSong(songId: string) {
   const response = await fetch(resolveUrl(`/api/songs/${songId}`))
   return parseResponse<SongResponse>(response)
+}
+
+export async function listSongs() {
+  const response = await fetch(resolveUrl('/api/songs'))
+  return parseResponse<SongCatalogEntry[]>(response)
+}
+
+export async function deleteSong(songId: string) {
+  const response = await fetch(resolveUrl(`/api/songs/${songId}`), {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    await parseResponse<never>(response)
+  }
 }
 
 export function resolveMediaUrl(path: string) {

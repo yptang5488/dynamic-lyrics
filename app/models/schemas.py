@@ -5,9 +5,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 
-SourceType = Literal["upload", "youtube"]
+SourceType = Literal["upload", "youtube", "spotify"]
 SourceStatus = Literal["queued", "processing", "ready", "failed"]
-JobType = Literal["youtube_import", "alignment", "lrc_import"]
+JobType = Literal["youtube_import", "spotify_import", "alignment", "lrc_import"]
 JobStatus = Literal["queued", "processing", "done", "failed"]
 
 
@@ -36,6 +36,25 @@ class YoutubeImportRequest(BaseModel):
 
 
 class YoutubeImportResponse(BaseModel):
+    source_id: str = Field(alias="sourceId")
+    job_id: str = Field(alias="jobId")
+    status: JobStatus
+
+    model_config = {"populate_by_name": True}
+
+
+class SpotifyImportRequest(BaseModel):
+    query: str
+    language: str = "unknown"
+
+    @model_validator(mode="after")
+    def validate_query(self) -> "SpotifyImportRequest":
+        if not self.query.strip():
+            raise ValueError("query must not be empty")
+        return self
+
+
+class SpotifyImportResponse(BaseModel):
     source_id: str = Field(alias="sourceId")
     job_id: str = Field(alias="jobId")
     status: JobStatus
@@ -116,3 +135,16 @@ class SongResponse(BaseModel):
     artist: str
     audio: AudioPayload
     lyrics: list[LyricLine]
+
+
+class SongCatalogEntry(BaseModel):
+    id: str
+    title: str
+    artist: str
+    language: str
+    has_lyrics: bool = Field(alias="hasLyrics")
+    has_translation: bool = Field(alias="hasTranslation")
+    has_notes: bool = Field(alias="hasNotes")
+    player_path: str = Field(alias="playerPath")
+
+    model_config = {"populate_by_name": True}

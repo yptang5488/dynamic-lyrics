@@ -58,6 +58,13 @@ def update_record(table: str, record_id: str, payload: dict[str, Any]) -> None:
         connection.commit()
 
 
+def delete_record(table: str, record_id: str) -> bool:
+    with get_connection() as connection:
+        cursor = connection.execute(f"DELETE FROM {table} WHERE id = ?", (record_id,))
+        connection.commit()
+    return cursor.rowcount > 0
+
+
 def fetch_one(table: str, record_id: str) -> dict[str, Any] | None:
     with get_connection() as connection:
         row = connection.execute(
@@ -65,6 +72,21 @@ def fetch_one(table: str, record_id: str) -> dict[str, Any] | None:
             (record_id,),
         ).fetchone()
     return dict(row) if row else None
+
+
+def fetch_ready_song_rows() -> list[dict[str, Any]]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT songs.*
+            FROM songs
+            JOIN sources ON sources.id = songs.source_id
+            WHERE sources.status = ?
+            ORDER BY songs.created_at DESC
+            """,
+            ("ready",),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def json_dumps(value: Any) -> str:
@@ -124,7 +146,7 @@ def _recover_stale_jobs(connection: sqlite3.Connection) -> None:
                 job["id"],
             ),
         )
-        if job["type"] == "youtube_import" and job["source_id"]:
+        if job["type"] in {"youtube_import", "spotify_import"} and job["source_id"]:
             source_ids_to_fail.add(job["source_id"])
 
     for source_id in source_ids_to_fail:
@@ -138,7 +160,7 @@ def _recover_stale_jobs(connection: sqlite3.Connection) -> None:
             """,
             (
                 "failed",
-                "youtube import interrupted during previous app shutdown",
+                "source import interrupted during previous app shutdown",
                 timestamp,
                 source_id,
             ),

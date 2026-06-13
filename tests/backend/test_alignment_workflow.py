@@ -2,6 +2,15 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.db.session import insert_record, json_dumps, utc_now
+
+
+def test_list_songs_returns_empty_library(client: TestClient) -> None:
+    response = client.get("/api/songs")
+    response.raise_for_status()
+
+    assert response.json() == []
+
 
 def test_alignment_requires_ready_source(
     client: TestClient, wait_for_job_completion
@@ -78,6 +87,163 @@ def test_upload_alignment_and_song_fetch_workflow(
 
     export_path = test_settings.export_dir / f"{song_id}.json"
     assert export_path.exists()
+
+
+def test_list_songs_returns_catalog_entries(
+    client: TestClient, wait_for_job_completion
+) -> None:
+    upload_response = client.post(
+        "/api/sources/upload-audio",
+        files={"file": ("lesson.mp3", b"fake audio bytes", "audio/mpeg")},
+    )
+    upload_response.raise_for_status()
+    source_payload = upload_response.json()
+
+    alignment_response = client.post(
+        "/api/alignments",
+        json={
+            "sourceId": source_payload["sourceId"],
+            "language": "ja",
+            "lyricsText": "First line\nSecond line",
+            "translations": ["Line one", "Line two"],
+        },
+    )
+    alignment_response.raise_for_status()
+
+    job_payload = wait_for_job_completion(client, alignment_response.json()["jobId"])
+    song_id = job_payload["result"]["songId"]
+
+    response = client.get("/api/songs")
+    response.raise_for_status()
+
+    assert response.json() == [
+        {
+            "id": song_id,
+            "title": "lesson",
+            "artist": "unknown",
+            "language": "ja",
+            "hasLyrics": True,
+            "hasTranslation": True,
+            "hasNotes": False,
+            "playerPath": f"/player/{song_id}",
+        }
+    ]
+
+
+def test_delete_song_removes_it_from_catalog(
+    client: TestClient, wait_for_job_completion
+) -> None:
+    upload_response = client.post(
+        "/api/sources/upload-audio",
+        files={"file": ("duplicate.mp3", b"fake audio bytes", "audio/mpeg")},
+    )
+    upload_response.raise_for_status()
+
+    alignment_response = client.post(
+        "/api/alignments",
+        json={
+            "sourceId": upload_response.json()["sourceId"],
+            "language": "ja",
+            "lyricsText": "First line",
+        },
+    )
+    alignment_response.raise_for_status()
+    job_payload = wait_for_job_completion(client, alignment_response.json()["jobId"])
+    song_id = job_payload["result"]["songId"]
+
+    delete_response = client.delete(f"/api/songs/{song_id}")
+
+    assert delete_response.status_code == 204
+    assert client.get(f"/api/songs/{song_id}").status_code == 404
+    assert client.get("/api/songs").json() == []
+
+
+def test_delete_song_returns_404_for_unknown_song(client: TestClient) -> None:
+    response = client.delete("/api/songs/song_missing")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "song not found"}
+
+
+def test_list_songs_skips_invalid_or_not_ready_records(client: TestClient) -> None:
+    timestamp = utc_now()
+    insert_record(
+        "sources",
+        {
+            "id": "src_ready",
+            "type": "upload",
+            "status": "ready",
+            "source_url": None,
+            "original_path": "/tmp/ready.mp3",
+            "normalized_path": None,
+            "title": "Ready Song",
+            "artist": "Ready Artist",
+            "duration": 12.3,
+            "error_message": None,
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+    insert_record(
+        "sources",
+        {
+            "id": "src_failed",
+            "type": "upload",
+            "status": "failed",
+            "source_url": None,
+            "original_path": "/tmp/failed.mp3",
+            "normalized_path": None,
+            "title": "Failed Song",
+            "artist": "Failed Artist",
+            "duration": 12.3,
+            "error_message": "failed",
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+    insert_record(
+        "songs",
+        {
+            "id": "song_invalid",
+            "source_id": "src_ready",
+            "title": "Invalid Song",
+            "artist": "Invalid Artist",
+            "language": "ja",
+            "lyrics_json": "not json",
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+    insert_record(
+        "songs",
+        {
+            "id": "song_not_ready",
+            "source_id": "src_failed",
+            "title": "Not Ready Song",
+            "artist": "Not Ready Artist",
+            "language": "ja",
+            "lyrics_json": json_dumps(
+                {
+                    "id": "song_not_ready",
+                    "title": "Not Ready Song",
+                    "artist": "Not Ready Artist",
+                    "audio": {
+                        "sourceId": "src_failed",
+                        "playbackUrl": "/media/raw/failed.mp3",
+                        "duration": 12.3,
+                    },
+                    "lyrics": [],
+                }
+            ),
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+
+    response = client.get("/api/songs")
+    response.raise_for_status()
+
+    assert response.json() == []
 
 
 def test_upload_lrc_import_and_song_fetch_workflow(
