@@ -49,6 +49,16 @@ export interface LrcImportRequest {
   lrcText: string
 }
 
+export interface SyncedLrcSearchRequest {
+  query: string
+  providers?: string[]
+}
+
+export interface SyncedLrcSearchResponse {
+  lrcText: string
+  warnings: string[]
+}
+
 export interface SongAudio {
   sourceId: string
   playbackUrl: string

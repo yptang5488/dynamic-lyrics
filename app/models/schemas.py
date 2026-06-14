@@ -74,6 +74,28 @@ class LrcImportRequest(BaseModel):
         return self
 
 
+class SyncedLrcSearchRequest(BaseModel):
+    query: str
+    providers: list[str] | None = None
+
+    @model_validator(mode="after")
+    def validate_query(self) -> "SyncedLrcSearchRequest":
+        if not self.query.strip():
+            raise ValueError("query must not be empty")
+        if self.providers is not None:
+            self.providers = [provider.strip() for provider in self.providers if provider.strip()]
+            if not self.providers:
+                self.providers = None
+        return self
+
+
+class SyncedLrcSearchResponse(BaseModel):
+    lrc_text: str = Field(alias="lrcText")
+    warnings: list[str] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
 class JobCreatedResponse(BaseModel):
     job_id: str = Field(alias="jobId")
     status: JobStatus

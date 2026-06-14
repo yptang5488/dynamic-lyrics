@@ -78,6 +78,36 @@ def test_import_youtube_sanitizes_short_url_in_job_flow(
     assert source_payload["errorMessage"] == "simulated youtube import failure"
 
 
+def test_import_youtube_uses_youtube_title_for_source_metadata(
+    client, wait_for_job_completion, monkeypatch
+) -> None:
+    def fake_import_youtube_audio(source_id: str, url: str):
+        return {
+            "original_path": f"/tmp/{source_id}.mp3",
+            "normalized_path": f"/tmp/{source_id}.wav",
+            "duration": 244.0,
+            "title": "마마무(MAMAMOO) '4 Flowers' MV",
+            "artist": None,
+        }
+
+    monkeypatch.setattr(
+        "app.workers.job_runner.import_youtube_audio", fake_import_youtube_audio
+    )
+
+    response = client.post(
+        "/api/sources/import-youtube",
+        json={"url": "https://www.youtube.com/watch?v=abc123xyz"},
+    )
+    response.raise_for_status()
+    payload = response.json()
+
+    job_payload = wait_for_job_completion(client, payload["jobId"])
+    source_payload = client.get(f"/api/sources/{payload['sourceId']}").json()
+
+    assert job_payload["status"] == "done"
+    assert source_payload["title"] == "마마무(MAMAMOO) '4 Flowers' MV"
+
+
 def test_import_spotify_downloads_source_and_returns_lrc_preview(
     client, test_settings, wait_for_job_completion, monkeypatch
 ) -> None:
@@ -170,6 +200,36 @@ def test_import_spotify_rejects_empty_query(client) -> None:
         "/api/sources/import-spotify",
         json={"query": "   "},
     )
+
+    assert response.status_code == 422
+
+
+def test_search_synced_lrc_returns_lrc_preview(client, monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_fetch_synced_lrc(query: str, providers: list[str] | None = None) -> str:
+        captured["query"] = query
+        captured["providers"] = providers
+        return "[00:01.00]First line"
+
+    monkeypatch.setattr(
+        "app.api.routes_lyrics.fetch_synced_lrc", fake_fetch_synced_lrc
+    )
+
+    response = client.post(
+        "/api/lyrics/search-synced",
+        json={"query": "MAMAMOO 4 flowers", "providers": ["Lrclib"]},
+    )
+    response.raise_for_status()
+    payload = response.json()
+
+    assert captured == {"query": "MAMAMOO 4 flowers", "providers": ["Lrclib"]}
+    assert payload["lrcText"] == "[00:01.00]First line"
+    assert payload["warnings"]
+
+
+def test_search_synced_lrc_rejects_empty_query(client) -> None:
+    response = client.post("/api/lyrics/search-synced", json={"query": "   "})
 
     assert response.status_code == 422
 

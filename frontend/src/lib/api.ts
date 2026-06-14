@@ -6,6 +6,8 @@ import type {
   SourceDetailResponse,
   SourceResponse,
   SpotifyImportResponse,
+  SyncedLrcSearchRequest,
+  SyncedLrcSearchResponse,
   YoutubeImportResponse,
 } from '../types/api'
 
@@ -76,6 +78,16 @@ export async function createLrcImport(payload: LrcImportRequest) {
   })
 
   return parseResponse<{ jobId: string; status: string }>(response)
+}
+
+export async function searchSyncedLrc(payload: SyncedLrcSearchRequest) {
+  const response = await fetch(resolveUrl('/api/lyrics/search-synced'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+  return parseResponse<SyncedLrcSearchResponse>(response)
 }
 
 export async function getJob(jobId: string) {

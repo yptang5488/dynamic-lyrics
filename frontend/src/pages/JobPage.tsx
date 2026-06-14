@@ -58,6 +58,11 @@ export function JobPage() {
       return
     }
 
+    if (job.type === 'youtube_import' && job.status === 'done') {
+      navigate(`/youtube-lrc/${job.id}`, { replace: true })
+      return
+    }
+
   }, [jobQuery.data, navigate, workflow])
 
   const completedSongId = jobQuery.data?.type === 'lrc_import' || jobQuery.data?.type === 'spotify_import'
@@ -161,7 +166,7 @@ export function JobPage() {
             <div className="quick-list">
               <div className="metric">
                 <strong>Import complete</strong>
-                <span className="muted">LRC import jobs create the player directly. YouTube sources currently stop after audio import until automatic LRC retrieval is connected.</span>
+                <span className="muted">LRC import jobs create the player directly. YouTube sources continue to synced LRC search before player creation.</span>
               </div>
               <div className="metric">
                 <strong>Song payload complete</strong>

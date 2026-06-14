@@ -36,6 +36,7 @@ def import_youtube_audio(source_id: str, url: str) -> dict[str, str | float | No
         raise RuntimeError("yt-dlp is required for YouTube imports")
 
     sanitized_url = sanitize_youtube_url(url)
+    title = _fetch_youtube_title(ytdlp_path, sanitized_url)
     output_template = settings.raw_dir / f"{source_id}.%(ext)s"
     command = [
         ytdlp_path,
@@ -62,9 +63,26 @@ def import_youtube_audio(source_id: str, url: str) -> dict[str, str | float | No
         "original_path": str(original_path),
         "normalized_path": str(normalized_path),
         "duration": duration,
-        "title": original_path.stem,
+        "title": title or original_path.stem,
         "artist": None,
     }
+
+
+def _fetch_youtube_title(ytdlp_path: str, url: str) -> str | None:
+    command = [
+        ytdlp_path,
+        "--no-playlist",
+        "--skip-download",
+        "--print",
+        "title",
+        url,
+    ]
+    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        return None
+
+    title = completed.stdout.strip().splitlines()[0].strip() if completed.stdout.strip() else ""
+    return title or None
 
 
 def _pick_audio_file(candidates: list[Path]) -> Path:
