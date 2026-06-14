@@ -28,7 +28,6 @@ interface LyricsPanelProps {
   showTranslation: boolean
   autoScroll: boolean
   isEditing?: boolean
-  timingOffset?: number
   onSeekToLine?: (line: SongLyricLine) => void
   onSelectEditLine?: (line: SongLyricLine) => void
   onUpdateStandaloneChant?: (line: SongLyricLine, noteIndex: number, text: string) => void
@@ -41,7 +40,6 @@ export function LyricsPanel({
   showTranslation,
   autoScroll,
   isEditing = false,
-  timingOffset = 0,
   onSeekToLine,
   onSelectEditLine,
   onUpdateStandaloneChant,
@@ -111,7 +109,6 @@ export function LyricsPanel({
             >
               <span className="lyric-line__time">
                 {formatTime(line.start)} - {formatTime(line.end)}
-                {timingOffset !== 0 ? <span className="lyric-line__offset">shifted {formatSignedSeconds(timingOffset)}</span> : null}
               </span>
               {renderChants(line, 'before-line', isEditing, editingChantKey, setEditingChantKey, onUpdateStandaloneChant)}
               <span className="lyric-line__text">{renderLyricText(line)}</span>
@@ -177,11 +174,6 @@ function renderLyricText(line: SongLyricLine) {
 
 function isTextEditingTarget(target: EventTarget) {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
-}
-
-function formatSignedSeconds(value: number) {
-  const sign = value > 0 ? '+' : ''
-  return `${sign}${value.toFixed(1)}s`
 }
 
 function renderChants(

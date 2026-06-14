@@ -115,6 +115,16 @@ export async function deleteSong(songId: string) {
   }
 }
 
+export async function updateSongLyricOffset(songId: string, lyricOffset: number) {
+  const response = await fetch(resolveUrl(`/api/songs/${songId}/lyric-offset`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lyricOffset }),
+  })
+
+  return parseResponse<SongResponse>(response)
+}
+
 export function resolveMediaUrl(path: string) {
   if (!path) {
     return ''

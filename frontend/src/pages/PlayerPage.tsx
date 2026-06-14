@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { LyricsPanel } from '../components/LyricsPanel'
 import { PageShell } from '../components/PageShell'
 import { PlayerControls } from '../components/PlayerControls'
-import { SectionCard } from '../components/SectionCard'
-import { getSong, resolveMediaUrl } from '../lib/api'
+import { getSong, resolveMediaUrl, updateSongLyricOffset } from '../lib/api'
 import { clearWorkflow } from '../lib/workflow'
 import type { SongLyricLine } from '../types/api'
+
+const EMPTY_LYRICS: SongLyricLine[] = []
+const OFFSET_RANGE_SECONDS = 10
 
 export function PlayerPage() {
   const { songId = '' } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scaleTrackRef = useRef<HTMLDivElement | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -25,13 +28,21 @@ export function PlayerPage() {
   const [timingOffset, setTimingOffset] = useState(0)
   const [draftTimingOffset, setDraftTimingOffset] = useState(0)
   const [isCalibrationOpen, setIsCalibrationOpen] = useState(false)
-  const [calibrationWindowSeconds, setCalibrationWindowSeconds] = useState(10)
   const [editedLineNotes, setEditedLineNotes] = useState<Record<string, Array<Record<string, unknown>>>>({})
+  const [activeSongId, setActiveSongId] = useState(songId)
+  const [syncedOffsetKey, setSyncedOffsetKey] = useState('')
 
   const songQuery = useQuery({
     queryKey: ['song', songId],
     queryFn: () => getSong(songId),
     enabled: Boolean(songId),
+  })
+  const lyricOffsetMutation = useMutation({
+    mutationFn: (lyricOffset: number) => updateSongLyricOffset(songId, lyricOffset),
+    onSuccess: (song) => {
+      queryClient.setQueryData(['song', song.id], song)
+      setSyncedOffsetKey(buildOffsetKey(song.id, song.lyricOffset))
+    },
   })
 
   useEffect(() => {
@@ -58,26 +69,33 @@ export function PlayerPage() {
     }
   }, [songQuery.data?.id])
 
-  const baseLyrics = songQuery.data?.lyrics ?? []
-  const originalLyrics = useMemo(() => applyEditedLineNotes(baseLyrics, editedLineNotes), [baseLyrics, editedLineNotes])
-  const adjustedLyrics = useMemo(() => shiftLyrics(originalLyrics, timingOffset), [originalLyrics, timingOffset])
-  const activeLine = useMemo(() => findActiveLine(adjustedLyrics, currentTime), [adjustedLyrics, currentTime])
-  const anchorLine = originalLyrics[0]
-  const calibrationDuration = duration || songQuery.data?.audio.duration || 0
-  const calibrationOffset = isCalibrationOpen ? draftTimingOffset : timingOffset
-  const anchorTargetTime = anchorLine ? roundOffset(anchorLine.start + calibrationOffset) : 0
-  const anchorRangeStart = anchorLine ? roundOffset(anchorLine.start - calibrationWindowSeconds) : 0
-  const anchorRangeEnd = anchorLine ? roundOffset(anchorLine.start + calibrationWindowSeconds) : 0
-  const anchorTicks = useMemo(() => buildTimeTicks(anchorRangeStart, anchorRangeEnd), [anchorRangeStart, anchorRangeEnd])
-
-  useEffect(() => {
+  if (songId !== activeSongId) {
+    setActiveSongId(songId)
     setEditedLineNotes({})
     setIsEditingLyrics(false)
     setSelectedEditLineId(null)
     setIsCalibrationOpen(false)
     setTimingOffset(0)
     setDraftTimingOffset(0)
-  }, [songQuery.data?.id])
+    setSyncedOffsetKey('')
+  }
+
+  const savedTimingOffset = roundOffset(songQuery.data?.lyricOffset ?? 0)
+  const loadedOffsetKey = songQuery.data?.id === songId ? buildOffsetKey(songQuery.data.id, savedTimingOffset) : ''
+
+  if (loadedOffsetKey && loadedOffsetKey !== syncedOffsetKey && !isCalibrationOpen) {
+    setSyncedOffsetKey(loadedOffsetKey)
+    setTimingOffset(savedTimingOffset)
+    setDraftTimingOffset(savedTimingOffset)
+  }
+
+  const baseLyrics = songQuery.data?.lyrics ?? EMPTY_LYRICS
+  const originalLyrics = useMemo(() => applyEditedLineNotes(baseLyrics, editedLineNotes), [baseLyrics, editedLineNotes])
+  const adjustedLyrics = useMemo(() => shiftLyrics(originalLyrics, timingOffset), [originalLyrics, timingOffset])
+  const activeLine = useMemo(() => findActiveLine(adjustedLyrics, currentTime), [adjustedLyrics, currentTime])
+  const offsetRangeStart = -OFFSET_RANGE_SECONDS
+  const offsetRangeEnd = OFFSET_RANGE_SECONDS
+  const offsetTicks = useMemo(() => buildTimeTicks(offsetRangeStart, offsetRangeEnd), [offsetRangeStart, offsetRangeEnd])
 
   function togglePlay() {
     const audio = audioRef.current
@@ -119,42 +137,12 @@ export function PlayerPage() {
     void audio.play()
   }
 
-  function previewPlaybackAt(value: number) {
-    const audio = audioRef.current
-    const nextTime = clampTime(value, calibrationDuration)
-
-    if (!audio) {
-      return
-    }
-
-    audio.currentTime = nextTime
-    setCurrentTime(nextTime)
-    void audio.play()
-  }
-
-  function applyAnchorStartTime(value: number, anchor = anchorLine) {
-    if (!anchor) {
-      return
-    }
-
-    const nextTime = roundOffset(value)
-    const nextOffset = roundOffset(nextTime - anchor.start)
-
-    if (isCalibrationOpen) {
-      setDraftTimingOffset(nextOffset)
-    } else {
-      setTimingOffset(nextOffset)
-    }
-
-    previewPlaybackAt(nextTime)
+  function applyDraftOffset(value: number) {
+    setDraftTimingOffset(roundOffset(clampOffset(value, offsetRangeStart, offsetRangeEnd)))
   }
 
   function handleNudgeTiming(delta: number) {
-    if (!anchorLine) {
-      return
-    }
-
-    applyAnchorStartTime(anchorLine.start + calibrationOffset + delta)
+    applyDraftOffset(draftTimingOffset + delta)
   }
 
   function openCalibrationSettings() {
@@ -163,8 +151,14 @@ export function PlayerPage() {
   }
 
   function applyCalibrationSettings() {
-    setTimingOffset(draftTimingOffset)
-    setIsCalibrationOpen(false)
+    lyricOffsetMutation.mutate(roundOffset(draftTimingOffset), {
+      onSuccess: (song) => {
+        const savedOffset = roundOffset(song.lyricOffset)
+        setTimingOffset(savedOffset)
+        setDraftTimingOffset(savedOffset)
+        setIsCalibrationOpen(false)
+      },
+    })
   }
 
   function handleSelectEditLine(line: SongLyricLine) {
@@ -189,32 +183,28 @@ export function PlayerPage() {
 
   function handleTickPointerDown(event: ReactPointerEvent<HTMLSpanElement>, tickValue: number) {
     const track = scaleTrackRef.current
-    const anchorStart = anchorLine?.start
 
-    if (!track || anchorStart === undefined) {
-      return
-    }
-
-    const tickDistance = Math.abs(tickValue - anchorStart)
-
-    if (tickDistance < 0.01) {
+    if (!track) {
       return
     }
 
     event.preventDefault()
+    applyDraftOffset(tickValue)
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
+    const applyPointerOffset = (clientX: number) => {
       const rect = track.getBoundingClientRect()
-      const halfWidth = rect.width / 2
 
-      if (halfWidth <= 0) {
+      if (rect.width <= 0) {
         return
       }
 
-      const centerX = rect.left + halfWidth
-      const distanceFromCenter = Math.min(halfWidth, Math.abs(moveEvent.clientX - centerX))
-      const ratio = Math.max(0.04, distanceFromCenter / halfWidth)
-      setCalibrationWindowSeconds(roundOffset(clampScaleWindow(tickDistance / ratio, Math.abs(calibrationOffset) + 0.1)))
+      const ratio = (clientX - rect.left) / rect.width
+      const nextOffset = offsetRangeStart + (offsetRangeEnd - offsetRangeStart) * ratio
+      applyDraftOffset(nextOffset)
+    }
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      applyPointerOffset(moveEvent.clientX)
     }
 
     const handlePointerUp = () => {
@@ -316,46 +306,40 @@ export function PlayerPage() {
             <div className="sync-offset-tool__header">
               <div>
                 <div className="eyebrow">LRC start calibration</div>
-                <h3 id="sync-offset-title">First lyric line offset: {formatSignedSeconds(timingOffset)}</h3>
+                <h3 id="sync-offset-title">Lyric line offset: {formatSignedSeconds(timingOffset)}</h3>
                 <p className="muted">
-                  Calibration uses the first lyric line as the timing reference. Open settings only when the LRC start needs adjustment.
+                  Adjust the whole lyric timeline earlier or later without changing the original LRC timestamps.
                 </p>
               </div>
-              <button type="button" className="secondary-button" onClick={openCalibrationSettings} disabled={!anchorLine || isCalibrationOpen}>
+              <button type="button" className="secondary-button" onClick={openCalibrationSettings} disabled={isCalibrationOpen}>
                 Calibration settings
               </button>
             </div>
             {isCalibrationOpen ? (
               <div className="sync-offset-tool__controls">
-                <div className="sync-offset-tool__summary">
-                  <span>Original LRC start: <strong>{anchorLine ? formatPreciseTime(anchorLine.start) : '00:00.0'}</strong></span>
-                  <span>Preview start: <strong>{formatPreciseTime(anchorTargetTime)}</strong></span>
-                  <span>Draft shift: <strong>{formatSignedSeconds(draftTimingOffset)}</strong></span>
-                </div>
                 <input
                   className="seek-input"
                   type="range"
-                  min={anchorRangeStart}
-                  max={anchorRangeEnd}
+                  min={offsetRangeStart}
+                  max={offsetRangeEnd}
                   step={0.1}
-                  value={anchorTargetTime}
-                  aria-label="First lyric start time in audio"
-                  disabled={!anchorLine}
-                  onChange={(event) => applyAnchorStartTime(Number(event.target.value))}
+                  value={draftTimingOffset}
+                  aria-label="Lyric line offset in seconds"
+                  onChange={(event) => applyDraftOffset(Number(event.target.value))}
                 />
-                <div ref={scaleTrackRef} className="sync-offset-tool__ticks" aria-label="Drag a tick left or right to resize the calibration range">
+                <div ref={scaleTrackRef} className="sync-offset-tool__ticks" aria-label="Drag a tick left or right to adjust the lyric line offset">
                   <button
                     type="button"
                     className="sync-offset-tool__origin"
                     style={{ left: '50%' }}
-                    onClick={() => applyAnchorStartTime(anchorLine?.start ?? 0)}
-                    disabled={!anchorLine || draftTimingOffset === 0}
-                    aria-label="Reset reference lyric to its original LRC time"
+                    onClick={() => applyDraftOffset(0)}
+                    disabled={draftTimingOffset === 0}
+                    aria-label="Reset lyric line offset to original timing"
                   >
                     <span className="sync-offset-tool__origin-line" />
-                    <span>Original</span>
+                    <span>original</span>
                   </button>
-                  {anchorTicks.map((tick) => (
+                  {offsetTicks.filter((tick) => tick.value !== 0).map((tick) => (
                     <span
                       key={tick.value}
                       className={`sync-offset-tool__tick${tick.isLabeled ? ' sync-offset-tool__tick--labeled' : ''}`}
@@ -363,7 +347,7 @@ export function PlayerPage() {
                       onPointerDown={(event) => handleTickPointerDown(event, tick.value)}
                     >
                       <span className="sync-offset-tool__tick-mark" />
-                      {tick.isLabeled ? <span>{formatWholeTime(tick.value)}</span> : null}
+                      {tick.isLabeled ? <span>{formatSignedSeconds(tick.value)}</span> : null}
                     </span>
                   ))}
                 </div>
@@ -374,58 +358,42 @@ export function PlayerPage() {
                     className="field sync-offset-tool__input"
                     type="number"
                     step={0.1}
-                    value={anchorTargetTime}
-                    aria-label="First lyric start time in audio seconds"
-                    disabled={!anchorLine}
-                    onChange={(event) => applyAnchorStartTime(Number(event.target.value))}
+                    value={draftTimingOffset}
+                    aria-label="Lyric line offset in seconds"
+                    onChange={(event) => applyDraftOffset(Number(event.target.value))}
                   />
                   <button type="button" className="ghost-button" onClick={() => handleNudgeTiming(0.1)}>+0.1s</button>
                   <button type="button" className="ghost-button" onClick={() => handleNudgeTiming(0.5)}>+0.5s</button>
                 </div>
                 <div className="sync-offset-tool__actions">
-                  <button type="button" className="primary-button" onClick={applyCalibrationSettings} disabled={!anchorLine}>
-                    Apply calibration
+                  <button type="button" className="primary-button" onClick={applyCalibrationSettings} disabled={lyricOffsetMutation.isPending}>
+                    {lyricOffsetMutation.isPending ? 'Saving...' : 'Apply calibration'}
                   </button>
-                  <button type="button" className="ghost-button" onClick={() => applyAnchorStartTime(anchorLine?.start ?? 0)} disabled={draftTimingOffset === 0 || !anchorLine}>
+                  <button type="button" className="ghost-button" onClick={() => applyDraftOffset(0)} disabled={draftTimingOffset === 0}>
                     Reset offset
                   </button>
                 </div>
+                {lyricOffsetMutation.isError ? (
+                  <div className="error-state">
+                    {lyricOffsetMutation.error instanceof Error ? lyricOffsetMutation.error.message : 'Failed to save lyric offset.'}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </section>
         </section>
 
-        <div className="split-grid">
-          <LyricsPanel
-            lyrics={adjustedLyrics}
-            activeLineId={activeLine?.id}
-            selectedEditLineId={selectedEditLineId}
-            showTranslation={showTranslation}
-            autoScroll={autoScroll}
-            isEditing={isEditingLyrics}
-            timingOffset={timingOffset}
-            onSeekToLine={handleSeekToLine}
-            onSelectEditLine={handleSelectEditLine}
-            onUpdateStandaloneChant={handleUpdateStandaloneChant}
-          />
-
-          <SectionCard title="Learning focus" subtitle="Phase 1 uses line timing, but the player already reflects the future guided-learning workflow.">
-            <div className="quick-list">
-              <div className="metric">
-                <strong>Current line</strong>
-                <span className="muted">{activeLine?.text ?? 'Start playback to activate a lyric line.'}</span>
-              </div>
-              <div className="metric">
-                <strong>Translation mode</strong>
-                <span className="muted">{showTranslation ? 'Visible for assisted learning.' : 'Hidden for focus mode.'}</span>
-              </div>
-              <div className="metric">
-                <strong>Upcoming expansion</strong>
-                <span className="muted">Word-level notes and cheering cues can reuse this same panel in later phases.</span>
-              </div>
-            </div>
-          </SectionCard>
-        </div>
+        <LyricsPanel
+          lyrics={adjustedLyrics}
+          activeLineId={activeLine?.id}
+          selectedEditLineId={selectedEditLineId}
+          showTranslation={showTranslation}
+          autoScroll={autoScroll}
+          isEditing={isEditingLyrics}
+          onSeekToLine={handleSeekToLine}
+          onSelectEditLine={handleSelectEditLine}
+          onUpdateStandaloneChant={handleUpdateStandaloneChant}
+        />
       </div>
     </PageShell>
   )
@@ -478,41 +446,21 @@ function roundOffset(value: number) {
   return Math.round(value * 10) / 10
 }
 
-function clampTime(value: number, duration: number) {
+function buildOffsetKey(songId: string, lyricOffset: number) {
+  return `${songId}:${roundOffset(lyricOffset)}`
+}
+
+function clampOffset(value: number, minimum: number, maximum: number) {
   if (!Number.isFinite(value)) {
     return 0
   }
 
-  if (!Number.isFinite(duration) || duration <= 0) {
-    return Math.max(0, value)
-  }
-
-  return Math.min(Math.max(0, value), duration)
+  return Math.min(Math.max(value, minimum), maximum)
 }
 
 function formatSignedSeconds(value: number) {
   const sign = value > 0 ? '+' : ''
   return `${sign}${value.toFixed(1)}s`
-}
-
-function formatPreciseTime(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds < 0) {
-    return '00:00.0'
-  }
-
-  const whole = Math.floor(seconds)
-  const minutes = Math.floor(whole / 60)
-  const remainingSeconds = whole % 60
-  const tenths = Math.floor((seconds - whole) * 10)
-  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}.${tenths}`
-}
-
-function formatWholeTime(seconds: number) {
-  const whole = Math.abs(Math.round(seconds))
-  const minutes = Math.floor(whole / 60)
-  const remainingSeconds = whole % 60
-  const prefix = seconds < 0 ? '-' : ''
-  return `${prefix}${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
 }
 
 function buildTimeTicks(start: number, end: number) {
@@ -524,7 +472,7 @@ function buildTimeTicks(start: number, end: number) {
 
   const firstTick = Math.ceil(start)
   const lastTick = Math.floor(end)
-  const labelInterval = range <= 24 ? 1 : range <= 70 ? 5 : 10
+  const labelInterval = range <= 24 ? 5 : range <= 70 ? 5 : 10
   const ticks = []
 
   for (let value = firstTick; value <= lastTick; value += 1) {
@@ -536,12 +484,4 @@ function buildTimeTicks(start: number, end: number) {
   }
 
   return ticks
-}
-
-function clampScaleWindow(value: number, minimum = 2) {
-  if (!Number.isFinite(value)) {
-    return 10
-  }
-
-  return Math.min(Math.max(value, minimum, 2), 120)
 }

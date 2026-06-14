@@ -3,8 +3,20 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 from pydantic import ValidationError
 
-from app.db.session import delete_record, fetch_one, fetch_ready_song_rows, json_loads
-from app.models.schemas import SongCatalogEntry, SongResponse
+from app.db.session import (
+    delete_record,
+    fetch_one,
+    fetch_ready_song_rows,
+    json_dumps,
+    json_loads,
+    update_record,
+    utc_now,
+)
+from app.models.schemas import (
+    SongCatalogEntry,
+    SongLyricOffsetUpdateRequest,
+    SongResponse,
+)
 
 router = APIRouter(prefix="/songs", tags=["songs"])
 
@@ -41,6 +53,30 @@ def get_song(song_id: str) -> SongResponse:
         )
     payload = json_loads(song["lyrics_json"], {})
     return SongResponse.model_validate(payload)
+
+
+@router.patch("/{song_id}/lyric-offset", response_model=SongResponse)
+def update_song_lyric_offset(
+    song_id: str, request: SongLyricOffsetUpdateRequest
+) -> SongResponse:
+    song = fetch_one("songs", song_id)
+    if not song:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="song not found"
+        )
+
+    payload = SongResponse.model_validate(json_loads(song["lyrics_json"], {}))
+    next_payload = payload.model_dump(by_alias=True)
+    next_payload["lyricOffset"] = round(request.lyric_offset, 1)
+    update_record(
+        "songs",
+        song_id,
+        {
+            "lyrics_json": json_dumps(next_payload),
+            "updated_at": utc_now(),
+        },
+    )
+    return SongResponse.model_validate(next_payload)
 
 
 @router.delete("/{song_id}", status_code=status.HTTP_204_NO_CONTENT)

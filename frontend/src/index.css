@@ -334,7 +334,7 @@ button {
 .ghost-button:disabled,
 .chip-button:disabled {
   opacity: 0.6;
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .status-list,
@@ -675,13 +675,6 @@ button {
   margin-bottom: 8px;
   font-size: 0.78rem;
   color: var(--muted);
-}
-
-.lyric-line__offset {
-  display: inline-flex;
-  margin-left: 8px;
-  color: var(--accent);
-  font-weight: 800;
 }
 
 .lyric-line__text {

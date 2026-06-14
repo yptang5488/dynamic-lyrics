@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.services.spotdl_import import SpotdlImportResult
-from app.db.session import insert_record, utc_now
+from app.db.session import insert_record, json_dumps, utc_now
 
 
 def test_get_source_returns_uploaded_source_details(client) -> None:
@@ -36,6 +36,37 @@ def test_get_job_returns_404_for_unknown_job(client) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "job not found"}
+
+
+def test_update_song_lyric_offset_persists(client) -> None:
+    timestamp = utc_now()
+    song_payload = {
+        "id": "song_offset_case",
+        "title": "Offset Case",
+        "artist": "Tester",
+        "audio": {"sourceId": "src_offset_case", "playbackUrl": "/media/test.mp3"},
+        "lyrics": [],
+    }
+    insert_record(
+        "songs",
+        {
+            "id": "song_offset_case",
+            "source_id": "src_offset_case",
+            "title": "Offset Case",
+            "artist": "Tester",
+            "lyrics_json": json_dumps(song_payload),
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+
+    response = client.patch(
+        "/api/songs/song_offset_case/lyric-offset", json={"lyricOffset": 1.24}
+    )
+    response.raise_for_status()
+
+    assert response.json()["lyricOffset"] == 1.2
+    assert client.get("/api/songs/song_offset_case").json()["lyricOffset"] == 1.2
 
 
 def test_import_youtube_rejects_invalid_url_payload(client) -> None:

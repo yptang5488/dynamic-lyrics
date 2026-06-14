@@ -82,6 +82,7 @@ export interface SongResponse {
   artist: string
   audio: SongAudio
   lyrics: SongLyricLine[]
+  lyricOffset: number
 }
 
 export interface SongCatalogEntry {

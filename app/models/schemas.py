@@ -140,6 +140,15 @@ class SongResponse(BaseModel):
     artist: str
     audio: AudioPayload
     lyrics: list[LyricLine]
+    lyric_offset: float = Field(default=0, alias="lyricOffset")
+
+    model_config = {"populate_by_name": True}
+
+
+class SongLyricOffsetUpdateRequest(BaseModel):
+    lyric_offset: float = Field(alias="lyricOffset")
+
+    model_config = {"populate_by_name": True}
 
 
 class SongCatalogEntry(BaseModel):
