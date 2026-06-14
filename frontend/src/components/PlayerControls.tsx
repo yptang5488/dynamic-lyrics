@@ -1,6 +1,10 @@
 import { formatTime } from '../lib/time'
+import type { ReactNode } from 'react'
 
 interface PlayerControlsProps {
+  title: string
+  artist: string
+  actions?: ReactNode
   isPlaying: boolean
   currentTime: number
   duration: number
@@ -8,7 +12,7 @@ interface PlayerControlsProps {
   onSeek: (value: number) => void
 }
 
-export function PlayerControls({ isPlaying, currentTime, duration, onTogglePlay, onSeek }: PlayerControlsProps) {
+export function PlayerControls({ title, artist, actions, isPlaying, currentTime, duration, onTogglePlay, onSeek }: PlayerControlsProps) {
   return (
     <div className="player-controls">
       <div className="transport-row">
@@ -16,9 +20,10 @@ export function PlayerControls({ isPlaying, currentTime, duration, onTogglePlay,
           {isPlaying ? 'Pause' : 'Play'}
         </button>
         <div>
-          <div className="eyebrow">Realtime lyric sync</div>
-          <p className="muted">Tap any lyric line to replay that moment instantly.</p>
+          <div className="player-controls__title">{title}</div>
+          <p className="player-controls__artist">{artist}</p>
         </div>
+        {actions ? <div className="player-controls__actions">{actions}</div> : null}
       </div>
 
       <div className="time-row">

@@ -5,20 +5,23 @@ interface PageShellProps extends PropsWithChildren {
   title: string
   subtitle: string
   aside?: ReactNode
+  hideHeader?: boolean
 }
 
-export function PageShell({ eyebrow, title, subtitle, aside, children }: PageShellProps) {
+export function PageShell({ eyebrow, title, subtitle, aside, hideHeader = false, children }: PageShellProps) {
   return (
     <div className="app-shell">
       <div className="app-shell__inner">
-        <header className="app-header">
-          <div>
-            <span className="eyebrow">{eyebrow}</span>
-            <h1 className="page-title">{title}</h1>
-            <p className="page-subtitle">{subtitle}</p>
-          </div>
-          {aside}
-        </header>
+        {hideHeader ? null : (
+          <header className="app-header">
+            <div>
+              <span className="eyebrow">{eyebrow}</span>
+              <h1 className="page-title">{title}</h1>
+              <p className="page-subtitle">{subtitle}</p>
+            </div>
+            {aside}
+          </header>
+        )}
         {children}
       </div>
     </div>

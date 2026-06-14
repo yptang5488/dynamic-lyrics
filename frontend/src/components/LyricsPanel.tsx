@@ -28,6 +28,9 @@ interface LyricsPanelProps {
   showTranslation: boolean
   autoScroll: boolean
   isEditing?: boolean
+  onToggleTranslation?: () => void
+  onToggleAutoScroll?: () => void
+  onToggleEditing?: () => void
   onSeekToLine?: (line: SongLyricLine) => void
   onSelectEditLine?: (line: SongLyricLine) => void
   onUpdateStandaloneChant?: (line: SongLyricLine, noteIndex: number, text: string) => void
@@ -40,6 +43,9 @@ export function LyricsPanel({
   showTranslation,
   autoScroll,
   isEditing = false,
+  onToggleTranslation,
+  onToggleAutoScroll,
+  onToggleEditing,
   onSeekToLine,
   onSelectEditLine,
   onUpdateStandaloneChant,
@@ -65,7 +71,29 @@ export function LyricsPanel({
       <div className="player-topline">
         <div>
           <h2>Lyrics flow</h2>
-          <p className="section-subtitle">Current, previous, and upcoming lines stay readable during playback.</p>
+        </div>
+        <div className="mode-bar">
+          <button
+            type="button"
+            className={`chip-button chip-button--compact${showTranslation ? ' is-active' : ''}`}
+            onClick={onToggleTranslation}
+          >
+            Translation {showTranslation ? 'on' : 'off'}
+          </button>
+          <button
+            type="button"
+            className={`chip-button chip-button--compact${autoScroll ? ' is-active' : ''}`}
+            onClick={onToggleAutoScroll}
+          >
+            Auto-scroll {autoScroll ? 'on' : 'off'}
+          </button>
+          <button
+            type="button"
+            className={`chip-button chip-button--compact${isEditing ? ' is-active' : ''}`}
+            onClick={onToggleEditing}
+          >
+            {isEditing ? 'Done editing' : 'Edit lyrics'}
+          </button>
         </div>
       </div>
 
