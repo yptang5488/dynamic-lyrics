@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { LyricsPanel } from '../components/LyricsPanel'
 import { PageShell } from '../components/PageShell'
 import { PlayerControls } from '../components/PlayerControls'
-import { getSong, resolveMediaUrl, updateSongLyricOffset } from '../lib/api'
+import { getSong, resolveMediaUrl, updateSongLyricNotes, updateSongLyricOffset } from '../lib/api'
 import type { SongLyricLine } from '../types/api'
 
 const EMPTY_LYRICS: SongLyricLine[] = []
@@ -38,6 +38,14 @@ export function PlayerPage() {
     onSuccess: (song) => {
       queryClient.setQueryData(['song', song.id], song)
       setSyncedOffsetKey(buildOffsetKey(song.id, song.lyricOffset))
+    },
+  })
+  const lyricNotesMutation = useMutation({
+    mutationFn: ({ lineId, notes }: { lineId: string; notes: Array<Record<string, unknown>> }) => (
+      updateSongLyricNotes(songId, [{ lineId, notes }])
+    ),
+    onSuccess: (song) => {
+      queryClient.setQueryData(['song', song.id], song)
     },
   })
 
@@ -164,20 +172,36 @@ export function PlayerPage() {
     setSelectedEditLineId(line.id)
   }
 
-  function handleUpdateStandaloneChant(line: SongLyricLine, noteIndex: number, text: string) {
-    setEditedLineNotes((current) => {
-      const baseLine = baseLyrics.find((item) => item.id === line.id)
-      const currentNotes = current[line.id] ?? baseLine?.notes
-
-      if (!currentNotes?.[noteIndex]) {
-        return current
+  function handleUpdateChantText(line: SongLyricLine, noteIndex: number, text: string) {
+    updateNotesForLine(line, (notes) => {
+      if (!notes[noteIndex]) {
+        return notes
       }
 
-      const nextNotes = [...currentNotes]
+      const nextNotes = [...notes]
       nextNotes[noteIndex] = { ...nextNotes[noteIndex], text }
-
-      return { ...current, [line.id]: nextNotes }
+      return nextNotes
     })
+  }
+
+  function handleAddChantNote(line: SongLyricLine, note: Record<string, unknown>) {
+    updateNotesForLine(line, (notes) => [...notes, note])
+  }
+
+  function updateNotesForLine(
+    line: SongLyricLine,
+    updater: (notes: Array<Record<string, unknown>>) => Array<Record<string, unknown>>,
+  ) {
+    const baseLine = baseLyrics.find((item) => item.id === line.id)
+    const currentNotes = editedLineNotes[line.id] ?? baseLine?.notes
+
+    if (!currentNotes) {
+      return
+    }
+
+    const nextNotes = updater(currentNotes)
+    setEditedLineNotes((current) => ({ ...current, [line.id]: nextNotes }))
+    lyricNotesMutation.mutate({ lineId: line.id, notes: nextNotes })
   }
 
   if (songQuery.isLoading) {
@@ -281,7 +305,8 @@ export function PlayerPage() {
           onToggleEditing={toggleLyricsEditing}
           onSeekToLine={handleSeekToLine}
           onSelectEditLine={handleSelectEditLine}
-          onUpdateStandaloneChant={handleUpdateStandaloneChant}
+          onUpdateChantText={handleUpdateChantText}
+          onAddChantNote={handleAddChantNote}
         />
       </div>
     </PageShell>

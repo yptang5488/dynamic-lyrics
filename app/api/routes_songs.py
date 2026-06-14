@@ -14,6 +14,7 @@ from app.db.session import (
 )
 from app.models.schemas import (
     SongCatalogEntry,
+    SongLyricNotesUpdateRequest,
     SongLyricOffsetUpdateRequest,
     SongResponse,
 )
@@ -68,6 +69,42 @@ def update_song_lyric_offset(
     payload = SongResponse.model_validate(json_loads(song["lyrics_json"], {}))
     next_payload = payload.model_dump(by_alias=True)
     next_payload["lyricOffset"] = round(request.lyric_offset, 1)
+    update_record(
+        "songs",
+        song_id,
+        {
+            "lyrics_json": json_dumps(next_payload),
+            "updated_at": utc_now(),
+        },
+    )
+    return SongResponse.model_validate(next_payload)
+
+
+@router.patch("/{song_id}/lyric-notes", response_model=SongResponse)
+def update_song_lyric_notes(
+    song_id: str, request: SongLyricNotesUpdateRequest
+) -> SongResponse:
+    song = fetch_one("songs", song_id)
+    if not song:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="song not found"
+        )
+
+    payload = SongResponse.model_validate(json_loads(song["lyrics_json"], {}))
+    line_updates = {item.line_id: item.notes for item in request.lyric_notes}
+    known_line_ids = {line.id for line in payload.lyrics}
+    unknown_line_ids = set(line_updates) - known_line_ids
+    if unknown_line_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"unknown lyric line id: {sorted(unknown_line_ids)[0]}",
+        )
+
+    next_payload = payload.model_dump(by_alias=True)
+    for line in next_payload["lyrics"]:
+        if line["id"] in line_updates:
+            line["notes"] = line_updates[line["id"]]
+
     update_record(
         "songs",
         song_id,

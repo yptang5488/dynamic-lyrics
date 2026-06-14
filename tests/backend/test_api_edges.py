@@ -69,6 +69,57 @@ def test_update_song_lyric_offset_persists(client) -> None:
     assert client.get("/api/songs/song_offset_case").json()["lyricOffset"] == 1.2
 
 
+def test_update_song_lyric_notes_persists(client) -> None:
+    timestamp = utc_now()
+    song_payload = {
+        "id": "song_notes_case",
+        "title": "Notes Case",
+        "artist": "Tester",
+        "audio": {"sourceId": "src_notes_case", "playbackUrl": "/media/test.mp3"},
+        "lyrics": [
+            {
+                "id": "l1",
+                "start": 0,
+                "end": 1,
+                "text": "hello world",
+                "translation": None,
+                "confidence": 0.9,
+                "segments": [],
+                "notes": [],
+            }
+        ],
+    }
+    insert_record(
+        "songs",
+        {
+            "id": "song_notes_case",
+            "source_id": "src_notes_case",
+            "title": "Notes Case",
+            "artist": "Tester",
+            "lyrics_json": json_dumps(song_payload),
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+
+    note = {
+        "type": "chant",
+        "mode": "inline",
+        "label": "sing-along",
+        "text": "hello",
+        "placement": "inline",
+        "anchor": {"matchText": "hello", "occurrence": 1, "charStart": 0, "charEnd": 5},
+    }
+    response = client.patch(
+        "/api/songs/song_notes_case/lyric-notes",
+        json={"lyricNotes": [{"lineId": "l1", "notes": [note]}]},
+    )
+    response.raise_for_status()
+
+    assert response.json()["lyrics"][0]["notes"] == [note]
+    assert client.get("/api/songs/song_notes_case").json()["lyrics"][0]["notes"] == [note]
+
+
 def test_import_youtube_rejects_invalid_url_payload(client) -> None:
     response = client.post("/api/sources/import-youtube", json={"url": "not-a-url"})
 

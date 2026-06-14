@@ -125,6 +125,19 @@ export async function updateSongLyricOffset(songId: string, lyricOffset: number)
   return parseResponse<SongResponse>(response)
 }
 
+export async function updateSongLyricNotes(
+  songId: string,
+  lyricNotes: Array<{ lineId: string; notes: Array<Record<string, unknown>> }>,
+) {
+  const response = await fetch(resolveUrl(`/api/songs/${songId}/lyric-notes`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lyricNotes }),
+  })
+
+  return parseResponse<SongResponse>(response)
+}
+
 export function resolveMediaUrl(path: string) {
   if (!path) {
     return ''

@@ -151,6 +151,19 @@ class SongLyricOffsetUpdateRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class SongLyricNotesUpdate(BaseModel):
+    line_id: str = Field(alias="lineId")
+    notes: list[dict[str, Any]] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
+class SongLyricNotesUpdateRequest(BaseModel):
+    lyric_notes: list[SongLyricNotesUpdate] = Field(alias="lyricNotes")
+
+    model_config = {"populate_by_name": True}
+
+
 class SongCatalogEntry(BaseModel):
     id: str
     title: str
