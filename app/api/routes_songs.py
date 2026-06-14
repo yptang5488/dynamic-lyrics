@@ -23,7 +23,6 @@ def list_songs() -> list[SongCatalogEntry]:
                 id=song["id"],
                 title=song["title"],
                 artist=song["artist"],
-                language=song["language"],
                 has_lyrics=len(payload.lyrics) > 0,
                 has_translation=any(line.translation for line in payload.lyrics),
                 has_notes=any(len(line.notes) > 0 for line in payload.lyrics),

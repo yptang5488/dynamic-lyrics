@@ -12,9 +12,7 @@ from app.db.session import (
     update_record,
     utc_now,
 )
-from app.services.aligner_mock import MockAligner
 from app.services.lrc_parser import build_paired_lrc_lyrics
-from app.services.lyrics_parser import parse_lyrics
 from app.services.song_builder import build_song
 from app.services.source_service import complete_spotify_source_import, fetch_source
 from app.services.spotdl_import import import_spotify_audio
@@ -24,7 +22,6 @@ from app.services.youtube_import import import_youtube_audio
 class JobRunner:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._aligner = MockAligner()
 
     def submit_youtube_import(self, source_id: str, url: str) -> str:
         job_id = self._create_job(
@@ -35,45 +32,24 @@ class JobRunner:
         self._spawn(job_id, self._run_youtube_import)
         return job_id
 
-    def submit_spotify_import(self, source_id: str, query: str, language: str) -> str:
+    def submit_spotify_import(self, source_id: str, query: str) -> str:
         job_id = self._create_job(
             job_type="spotify_import",
             source_id=source_id,
-            payload={"query": query, "language": language},
+            payload={"query": query},
         )
         self._spawn(job_id, self._run_spotify_import)
-        return job_id
-
-    def submit_alignment(
-        self,
-        source_id: str,
-        language: str,
-        lyrics_text: str,
-        translations: list[str] | None,
-    ) -> str:
-        job_id = self._create_job(
-            job_type="alignment",
-            source_id=source_id,
-            payload={
-                "language": language,
-                "lyricsText": lyrics_text,
-                "translations": translations or [],
-            },
-        )
-        self._spawn(job_id, self._run_alignment)
         return job_id
 
     def submit_lrc_import(
         self,
         source_id: str,
-        language: str,
         lrc_text: str,
     ) -> str:
         job_id = self._create_job(
             job_type="lrc_import",
             source_id=source_id,
             payload={
-                "language": language,
                 "lrcText": lrc_text,
             },
         )
@@ -196,42 +172,6 @@ class JobRunner:
             )
             self._fail_job(job_id, exc)
 
-    def _run_alignment(self, job_id: str) -> None:
-        job = self.get_job(job_id)
-        if not job:
-            return
-        source = fetch_source(job["source_id"])
-        if not source:
-            self._fail_job(job_id, RuntimeError("source not found"))
-            return
-
-        try:
-            if source["status"] != "ready":
-                raise RuntimeError("source is not ready for alignment")
-
-            payload = json_loads(job["payload_json"], {})
-            self._set_job(
-                job_id, status="processing", progress=15, message="parsing lyrics"
-            )
-            parsed_lines = parse_lyrics(
-                payload["lyricsText"], payload.get("translations")
-            )
-            self._set_job(job_id, progress=55, message="building mock timings")
-            aligned = self._aligner.align(
-                source.get("duration"), parsed_lines, payload["language"]
-            )
-            self._set_job(job_id, progress=85, message="saving song data")
-            song = build_song(source, payload["language"], aligned)
-            self._set_job(
-                job_id,
-                status="done",
-                progress=100,
-                message="alignment completed",
-                result={"songId": song["id"]},
-            )
-        except Exception as exc:  # noqa: BLE001
-            self._fail_job(job_id, exc)
-
     def _run_lrc_import(self, job_id: str) -> None:
         job = self.get_job(job_id)
         if not job:
@@ -272,7 +212,7 @@ class JobRunner:
                 message="building song payload",
                 result={"warnings": warnings} if warnings else None,
             )
-            song = build_song(source, payload["language"], lyrics)
+            song = build_song(source, lyrics)
             result = {"songId": song["id"]}
             if warnings:
                 result["warnings"] = warnings

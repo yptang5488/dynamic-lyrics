@@ -99,7 +99,6 @@ function SongCard({
   return (
     <article className="song-card">
       <div>
-        <span className="eyebrow">{song.language}</span>
         <h3>{song.title}</h3>
         <p className="muted">{song.artist}</p>
       </div>

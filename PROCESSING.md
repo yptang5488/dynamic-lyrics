@@ -110,14 +110,13 @@ Implemented focus:
 - `POST /api/sources/upload-audio`
 - `POST /api/sources/import-youtube`
 - `GET /api/sources/{sourceId}`
-- `POST /api/alignments`
 - `POST /api/alignments/from-lrc`
 - `GET /api/jobs/{jobId}`
 - `GET /api/songs/{songId}`
 
 ## Current Limitations
 
-- lyric timing is still mock timing, not real audio-to-lyrics alignment
+- lyric timing currently comes from LRC input, not real audio-to-lyrics alignment
 - background jobs run in-process and are not yet durable worker jobs
 - YouTube import depends on local `yt-dlp`
 - audio normalization quality depends on local `ffmpeg`

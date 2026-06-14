@@ -9,9 +9,7 @@ from app.config import settings
 from app.db.session import insert_record, json_dumps, utc_now
 
 
-def build_song(
-    source: dict, language: str, aligned_lyrics: list[dict[str, object]]
-) -> dict:
+def build_song(source: dict, aligned_lyrics: list[dict[str, object]]) -> dict:
     song_id = f"song_{source['id']}_{uuid4().hex[:6]}"
     title = source.get("title") or Path(source.get("original_path") or "song").stem
     artist = source.get("artist") or "unknown"
@@ -40,7 +38,6 @@ def build_song(
             "source_id": source["id"],
             "title": title,
             "artist": artist,
-            "language": language,
             "lyrics_json": json_dumps(song_payload),
             "created_at": timestamp,
             "updated_at": timestamp,

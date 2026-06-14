@@ -1,5 +1,4 @@
 import type {
-  AlignmentRequest,
   JobStatusResponse,
   SongCatalogEntry,
   LrcImportRequest,
@@ -54,11 +53,11 @@ export async function importYoutube(url: string) {
   return parseResponse<YoutubeImportResponse>(response)
 }
 
-export async function importSpotify(query: string, language: string) {
+export async function importSpotify(query: string) {
   const response = await fetch(resolveUrl('/api/sources/import-spotify'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, language }),
+    body: JSON.stringify({ query }),
   })
 
   return parseResponse<SpotifyImportResponse>(response)
@@ -67,16 +66,6 @@ export async function importSpotify(query: string, language: string) {
 export async function getSource(sourceId: string) {
   const response = await fetch(resolveUrl(`/api/sources/${sourceId}`))
   return parseResponse<SourceDetailResponse>(response)
-}
-
-export async function createAlignment(payload: AlignmentRequest) {
-  const response = await fetch(resolveUrl('/api/alignments'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-
-  return parseResponse<{ jobId: string; status: string }>(response)
 }
 
 export async function createLrcImport(payload: LrcImportRequest) {

@@ -114,7 +114,7 @@ def test_import_spotify_downloads_source_and_returns_lrc_preview(
 
     response = client.post(
         "/api/sources/import-spotify",
-        json={"query": "NEWJEANS - Cookie", "language": "ko"},
+        json={"query": "NEWJEANS - Cookie"},
     )
     response.raise_for_status()
     payload = response.json()
@@ -151,7 +151,7 @@ def test_import_spotify_job_failure_marks_source_failed(
 
     response = client.post(
         "/api/sources/import-spotify",
-        json={"query": "NEWJEANS - Cookie", "language": "ko"},
+        json={"query": "NEWJEANS - Cookie"},
     )
     response.raise_for_status()
     payload = response.json()
@@ -168,19 +168,18 @@ def test_import_spotify_job_failure_marks_source_failed(
 def test_import_spotify_rejects_empty_query(client) -> None:
     response = client.post(
         "/api/sources/import-spotify",
-        json={"query": "   ", "language": "ko"},
+        json={"query": "   "},
     )
 
     assert response.status_code == 422
 
 
-def test_alignment_rejects_missing_source(client) -> None:
+def test_lrc_import_rejects_missing_source(client) -> None:
     response = client.post(
-        "/api/alignments",
+        "/api/alignments/from-lrc",
         json={
             "sourceId": "src_missing",
-            "language": "ja",
-            "lyricsText": "First line",
+            "lrcText": "[00:01.00]First line",
         },
     )
 
@@ -188,7 +187,7 @@ def test_alignment_rejects_missing_source(client) -> None:
     assert response.json() == {"detail": "source not found"}
 
 
-def test_alignment_rejects_failed_source(client) -> None:
+def test_lrc_import_rejects_failed_source(client) -> None:
     source_id = "src_failed01"
     timestamp = utc_now()
     insert_record(
@@ -210,11 +209,10 @@ def test_alignment_rejects_failed_source(client) -> None:
     )
 
     response = client.post(
-        "/api/alignments",
+        "/api/alignments/from-lrc",
         json={
             "sourceId": source_id,
-            "language": "ja",
-            "lyricsText": "First line",
+            "lrcText": "[00:01.00]First line",
         },
     )
 
@@ -222,7 +220,7 @@ def test_alignment_rejects_failed_source(client) -> None:
     assert response.json() == {"detail": "source failed to import"}
 
 
-def test_alignment_rejects_empty_lyrics_payload(client) -> None:
+def test_lrc_import_rejects_empty_lrc_payload(client) -> None:
     upload_response = client.post(
         "/api/sources/upload-audio",
         files={"file": ("blank-lyrics.mp3", b"fake audio bytes", "audio/mpeg")},
@@ -231,42 +229,11 @@ def test_alignment_rejects_empty_lyrics_payload(client) -> None:
     source_id = upload_response.json()["sourceId"]
 
     response = client.post(
-        "/api/alignments",
+        "/api/alignments/from-lrc",
         json={
             "sourceId": source_id,
-            "language": "ja",
-            "lyricsText": "   ",
+            "lrcText": "   ",
         },
     )
 
     assert response.status_code == 422
-
-
-def test_alignment_job_fails_when_translation_count_mismatches(
-    client, wait_for_job_completion
-) -> None:
-    upload_response = client.post(
-        "/api/sources/upload-audio",
-        files={"file": ("mismatch.mp3", b"fake audio bytes", "audio/mpeg")},
-    )
-    upload_response.raise_for_status()
-    source_id = upload_response.json()["sourceId"]
-
-    alignment_response = client.post(
-        "/api/alignments",
-        json={
-            "sourceId": source_id,
-            "language": "ja",
-            "lyricsText": "First line\nSecond line",
-            "translations": ["Only one translation"],
-        },
-    )
-    alignment_response.raise_for_status()
-
-    job_payload = wait_for_job_completion(client, alignment_response.json()["jobId"])
-
-    assert job_payload["status"] == "failed"
-    assert (
-        job_payload["errorMessage"]
-        == "translations count must match non-empty lyric line count"
-    )

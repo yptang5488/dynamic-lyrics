@@ -44,23 +44,19 @@ export function SpotifyLrcPreviewPage() {
 
     setIsSubmitting(true)
     try {
-      const alignment = await createLrcImport({
+      const lrcImport = await createLrcImport({
         sourceId,
-        language: workflow?.language ?? 'unknown',
         lrcText,
       })
       const nextWorkflow = {
         sourceId,
         sourceMode: 'spotify' as const,
-        language: workflow?.language ?? 'unknown',
-        lyricsText: lrcText,
-        translationsText: '',
         sourceJobId: jobId,
-        alignmentJobId: alignment.jobId,
+        lrcJobId: lrcImport.jobId,
       }
       setWorkflow(nextWorkflow)
       saveWorkflow(nextWorkflow)
-      navigate(`/jobs/${alignment.jobId}`)
+      navigate(`/jobs/${lrcImport.jobId}`)
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Failed to create LRC import job.')
     } finally {
@@ -104,7 +100,7 @@ export function SpotifyLrcPreviewPage() {
     <PageShell
       eyebrow="Spotify LRC Review"
       title="Confirm lyrics before building the player"
-      subtitle="spotdl can return the wrong language or version. Use the generated LRC if it looks right, or upload a replacement LRC before creating the player."
+      subtitle="spotdl can return the wrong version. Use the generated LRC if it looks right, or upload a replacement LRC before creating the player."
       aside={<Link className="secondary-button" to="/">New import</Link>}
     >
       <div className="split-grid">
@@ -114,10 +110,6 @@ export function SpotifyLrcPreviewPage() {
               <span>Current LRC</span>
               <strong>{lrcText.trim() ? lrcSourceLabel : 'No LRC available'}</strong>
             </div>
-            <div className="metric">
-              <strong>Wrong language?</strong>
-              <span className="muted">Upload another LRC instead of fixing every line manually.</span>
-            </div>
             <div className="file-shell">
               <input
                 className="file-input"
@@ -125,7 +117,7 @@ export function SpotifyLrcPreviewPage() {
                 accept=".lrc,text/plain"
                 onChange={(event) => void handleLrcUpload(event.target.files?.[0])}
               />
-              <span className="field-help">Choose a replacement `.lrc` file if the generated lyrics are the wrong version or language.</span>
+              <span className="field-help">Choose a replacement `.lrc` file if the generated lyrics are the wrong version.</span>
             </div>
           </div>
 
@@ -155,14 +147,6 @@ export function SpotifyLrcPreviewPage() {
             <div className="detail-row">
               <span>Source id</span>
               <span className="inline-code">{sourceId ?? 'missing'}</span>
-            </div>
-            <div className="detail-row">
-              <span>Selected language</span>
-              <strong>{(workflow?.language ?? 'unknown').toUpperCase()}</strong>
-            </div>
-            <div className="metric">
-              <strong>Language check</strong>
-              <span className="muted">If you selected Korean but the preview is mostly Japanese, upload a different LRC.</span>
             </div>
             <div className="metric">
               <strong>Minor typo?</strong>

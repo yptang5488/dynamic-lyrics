@@ -68,12 +68,11 @@ More detail: `docs/features/private-song-library/WORKFLOW.md`.
 
 ### Import-To-Player Flow
 
-1. Choose a source by uploading audio or pasting a YouTube watch URL.
-2. Preferred path: provide an `.lrc` file that already carries lyric timing.
-3. Fallback path: paste original lyrics and optional matching translations.
-4. Create a sync job.
-5. Watch import and timing progress on the job page.
-6. Open the generated player and study with synchronized lyric lines.
+1. Choose a source by uploading audio, pasting a YouTube watch URL, or using Spotify metadata.
+2. Provide or review an `.lrc` file that already carries lyric timing.
+3. Create a sync job.
+4. Watch import and LRC processing progress on the job page.
+5. Open the generated player and study with synchronized lyric lines.
 
 ## API Coverage
 
@@ -82,7 +81,6 @@ More detail: `docs/features/private-song-library/WORKFLOW.md`.
 - `POST /api/sources/import-youtube`
 - `POST /api/sources/import-spotify`
 - `GET /api/sources/{sourceId}`
-- `POST /api/alignments`
 - `POST /api/alignments/from-lrc`
 - `GET /api/jobs/{jobId}`
 - `GET /api/songs`
@@ -106,7 +104,7 @@ Implemented now:
 - backend export of player-ready song JSON
 - backend song catalog listing and song deletion APIs
 - backend LRC import job flow for paired bilingual `.lrc` files
-- backend pytest coverage for parser, song export, API edge cases, and alignment workflow
+- backend pytest coverage for parser, song export, API edge cases, and LRC import workflow
 
 Still in progress:
 

@@ -52,7 +52,7 @@ def import_youtube(payload: YoutubeImportRequest) -> YoutubeImportResponse:
 def import_spotify(payload: SpotifyImportRequest) -> SpotifyImportResponse:
     query = payload.query.strip()
     source = create_pending_spotify_source(query)
-    job_id = job_runner.submit_spotify_import(source["id"], query, payload.language)
+    job_id = job_runner.submit_spotify_import(source["id"], query)
     return SpotifyImportResponse(sourceId=source["id"], jobId=job_id, status="queued")
 
 

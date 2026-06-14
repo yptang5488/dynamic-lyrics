@@ -4,7 +4,7 @@ export type SourceStatus = 'queued' | 'processing' | 'ready' | 'failed'
 
 export type JobStatus = 'queued' | 'processing' | 'done' | 'failed'
 
-export type JobType = 'youtube_import' | 'spotify_import' | 'alignment' | 'lrc_import'
+export type JobType = 'youtube_import' | 'spotify_import' | 'lrc_import'
 
 export interface SourceResponse {
   sourceId: string
@@ -44,16 +44,8 @@ export interface JobStatusResponse {
   errorMessage?: string | null
 }
 
-export interface AlignmentRequest {
-  sourceId: string
-  language: string
-  lyricsText: string
-  translations?: string[]
-}
-
 export interface LrcImportRequest {
   sourceId: string
-  language: string
   lrcText: string
 }
 
@@ -86,7 +78,6 @@ export interface SongCatalogEntry {
   id: string
   title: string
   artist: string
-  language: string
   hasLyrics: boolean
   hasTranslation: boolean
   hasNotes: boolean
@@ -96,10 +87,7 @@ export interface SongCatalogEntry {
 export interface WorkflowState {
   sourceId: string
   sourceMode: SourceMode
-  language: string
-  lyricsText: string
-  translationsText: string
-  alignmentJobId?: string
+  lrcJobId?: string
   sourceJobId?: string
   songId?: string
 }

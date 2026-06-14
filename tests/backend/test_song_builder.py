@@ -23,11 +23,10 @@ def test_build_song_persists_export_and_expected_payload_shape(test_settings) ->
             "confidence": 0.55,
             "segments": [],
             "notes": [],
-            "language": "ja",
         }
     ]
 
-    song = build_song(source, "ja", aligned_lyrics)
+    song = build_song(source, aligned_lyrics)
 
     assert song["title"] == "Sample Song"
     assert song["artist"] == "Sample Artist"
@@ -54,6 +53,6 @@ def test_build_song_preserves_nested_raw_media_url(test_settings) -> None:
         "artist": "NewJeans",
     }
 
-    song = build_song(source, "ko", [])
+    song = build_song(source, [])
 
     assert song["audio"]["playbackUrl"] == "/media/raw/src_spotify1_spotdl/NewJeans%20-%20Cookie.mp3"

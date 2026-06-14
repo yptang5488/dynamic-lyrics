@@ -12,37 +12,12 @@ def test_list_songs_returns_empty_library(client: TestClient) -> None:
     assert response.json() == []
 
 
-def test_alignment_requires_ready_source(
-    client: TestClient, wait_for_job_completion
-) -> None:
-    youtube_response = client.post(
-        "/api/sources/import-youtube",
-        json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-    )
-    youtube_response.raise_for_status()
-    payload = youtube_response.json()
-
-    response = client.post(
-        "/api/alignments",
-        json={
-            "sourceId": payload["sourceId"],
-            "language": "ja",
-            "lyricsText": "First line\nSecond line",
-        },
-    )
-
-    assert response.status_code == 202
-    job_payload = wait_for_job_completion(client, response.json()["jobId"])
-    assert job_payload["status"] == "failed"
-    assert job_payload["errorMessage"] == "source is not ready for alignment"
-
-
-def test_upload_alignment_and_song_fetch_workflow(
+def test_upload_lrc_import_and_song_fetch_workflow(
     client: TestClient, test_settings, wait_for_job_completion
 ) -> None:
     upload_response = client.post(
         "/api/sources/upload-audio",
-        files={"file": ("lesson.mp3", b"fake audio bytes", "audio/mpeg")},
+        files={"file": ("bangbang.mp3", b"fake audio bytes", "audio/mpeg")},
     )
     upload_response.raise_for_status()
     source_payload = upload_response.json()
@@ -50,22 +25,26 @@ def test_upload_alignment_and_song_fetch_workflow(
     assert source_payload["status"] == "ready"
     assert source_payload["type"] == "upload"
 
-    alignment_response = client.post(
-        "/api/alignments",
+    lrc_response = client.post(
+        "/api/alignments/from-lrc",
         json={
             "sourceId": source_payload["sourceId"],
-            "language": "ja",
-            "lyricsText": "First line\nSecond line",
-            "translations": ["Line one", "Line two"],
+            "lrcText": "\n".join(
+                [
+                    "[00:08.000]이미 알아차렸겠지",
+                    "[00:10.000]应该早就已经察觉",
+                    "[00:10.000]그치 언니",
+                    "[00:11.000]对吧姐姐",
+                ]
+            ),
         },
     )
-    alignment_response.raise_for_status()
-    alignment_payload = alignment_response.json()
+    lrc_response.raise_for_status()
 
-    assert alignment_payload["status"] == "queued"
-
-    job_payload = wait_for_job_completion(client, alignment_payload["jobId"])
+    job_payload = wait_for_job_completion(client, lrc_response.json()["jobId"])
     assert job_payload["status"] == "done"
+    assert job_payload["id"].startswith("job_")
+    assert job_payload["type"] == "lrc_import"
     assert job_payload["result"]["songId"].startswith("song_")
 
     song_id = job_payload["result"]["songId"]
@@ -74,16 +53,31 @@ def test_upload_alignment_and_song_fetch_workflow(
     song_payload = song_response.json()
 
     assert song_payload["id"] == song_id
-    assert song_payload["title"] == "lesson"
     assert song_payload["audio"]["sourceId"] == source_payload["sourceId"]
     assert song_payload["audio"]["playbackUrl"].endswith(".mp3")
     assert song_payload["audio"]["duration"] == 123.4
-    assert len(song_payload["lyrics"]) == 2
-    assert song_payload["lyrics"][0]["text"] == "First line"
-    assert song_payload["lyrics"][0]["translation"] == "Line one"
-    assert song_payload["lyrics"][0]["start"] < song_payload["lyrics"][0]["end"]
-    assert song_payload["lyrics"][0]["segments"] == []
-    assert song_payload["lyrics"][0]["notes"] == []
+    assert song_payload["lyrics"] == [
+        {
+            "id": "l1",
+            "start": 8.0,
+            "end": 10.0,
+            "text": "이미 알아차렸겠지",
+            "translation": "应该早就已经察觉",
+            "confidence": 0.98,
+            "segments": [],
+            "notes": [],
+        },
+        {
+            "id": "l2",
+            "start": 10.0,
+            "end": 11.0,
+            "text": "그치 언니",
+            "translation": "对吧姐姐",
+            "confidence": 0.98,
+            "segments": [],
+            "notes": [],
+        },
+    ]
 
     export_path = test_settings.export_dir / f"{song_id}.json"
     assert export_path.exists()
@@ -92,26 +86,7 @@ def test_upload_alignment_and_song_fetch_workflow(
 def test_list_songs_returns_catalog_entries(
     client: TestClient, wait_for_job_completion
 ) -> None:
-    upload_response = client.post(
-        "/api/sources/upload-audio",
-        files={"file": ("lesson.mp3", b"fake audio bytes", "audio/mpeg")},
-    )
-    upload_response.raise_for_status()
-    source_payload = upload_response.json()
-
-    alignment_response = client.post(
-        "/api/alignments",
-        json={
-            "sourceId": source_payload["sourceId"],
-            "language": "ja",
-            "lyricsText": "First line\nSecond line",
-            "translations": ["Line one", "Line two"],
-        },
-    )
-    alignment_response.raise_for_status()
-
-    job_payload = wait_for_job_completion(client, alignment_response.json()["jobId"])
-    song_id = job_payload["result"]["songId"]
+    song_id = create_lrc_song(client, wait_for_job_completion, filename="lesson.mp3")
 
     response = client.get("/api/songs")
     response.raise_for_status()
@@ -121,7 +96,6 @@ def test_list_songs_returns_catalog_entries(
             "id": song_id,
             "title": "lesson",
             "artist": "unknown",
-            "language": "ja",
             "hasLyrics": True,
             "hasTranslation": True,
             "hasNotes": False,
@@ -133,23 +107,7 @@ def test_list_songs_returns_catalog_entries(
 def test_delete_song_removes_it_from_catalog(
     client: TestClient, wait_for_job_completion
 ) -> None:
-    upload_response = client.post(
-        "/api/sources/upload-audio",
-        files={"file": ("duplicate.mp3", b"fake audio bytes", "audio/mpeg")},
-    )
-    upload_response.raise_for_status()
-
-    alignment_response = client.post(
-        "/api/alignments",
-        json={
-            "sourceId": upload_response.json()["sourceId"],
-            "language": "ja",
-            "lyricsText": "First line",
-        },
-    )
-    alignment_response.raise_for_status()
-    job_payload = wait_for_job_completion(client, alignment_response.json()["jobId"])
-    song_id = job_payload["result"]["songId"]
+    song_id = create_lrc_song(client, wait_for_job_completion, filename="duplicate.mp3")
 
     delete_response = client.delete(f"/api/songs/{song_id}")
 
@@ -208,7 +166,6 @@ def test_list_songs_skips_invalid_or_not_ready_records(client: TestClient) -> No
             "source_id": "src_ready",
             "title": "Invalid Song",
             "artist": "Invalid Artist",
-            "language": "ja",
             "lyrics_json": "not json",
             "created_at": timestamp,
             "updated_at": timestamp,
@@ -221,7 +178,6 @@ def test_list_songs_skips_invalid_or_not_ready_records(client: TestClient) -> No
             "source_id": "src_failed",
             "title": "Not Ready Song",
             "artist": "Not Ready Artist",
-            "language": "ja",
             "lyrics_json": json_dumps(
                 {
                     "id": "song_not_ready",
@@ -246,12 +202,12 @@ def test_list_songs_skips_invalid_or_not_ready_records(client: TestClient) -> No
     assert response.json() == []
 
 
-def test_upload_lrc_import_and_song_fetch_workflow(
-    client: TestClient, test_settings, wait_for_job_completion
-) -> None:
+def create_lrc_song(
+    client: TestClient, wait_for_job_completion, *, filename: str = "lesson.mp3"
+) -> str:
     upload_response = client.post(
         "/api/sources/upload-audio",
-        files={"file": ("bangbang.mp3", b"fake audio bytes", "audio/mpeg")},
+        files={"file": (filename, b"fake audio bytes", "audio/mpeg")},
     )
     upload_response.raise_for_status()
     source_payload = upload_response.json()
@@ -260,7 +216,6 @@ def test_upload_lrc_import_and_song_fetch_workflow(
         "/api/alignments/from-lrc",
         json={
             "sourceId": source_payload["sourceId"],
-            "language": "ko",
             "lrcText": "\n".join(
                 [
                     "[00:08.000]이미 알아차렸겠지",
@@ -275,38 +230,7 @@ def test_upload_lrc_import_and_song_fetch_workflow(
 
     job_payload = wait_for_job_completion(client, lrc_response.json()["jobId"])
     assert job_payload["status"] == "done"
-    assert job_payload["id"].startswith("job_")
-    assert job_payload["type"] == "lrc_import"
-
-    song_id = job_payload["result"]["songId"]
-    song_payload = client.get(f"/api/songs/{song_id}").json()
-
-    assert song_payload["audio"]["sourceId"] == source_payload["sourceId"]
-    assert song_payload["lyrics"] == [
-        {
-            "id": "l1",
-            "start": 8.0,
-            "end": 10.0,
-            "text": "이미 알아차렸겠지",
-            "translation": "应该早就已经察觉",
-            "confidence": 0.98,
-            "segments": [],
-            "notes": [],
-        },
-        {
-            "id": "l2",
-            "start": 10.0,
-            "end": 11.0,
-            "text": "그치 언니",
-            "translation": "对吧姐姐",
-            "confidence": 0.98,
-            "segments": [],
-            "notes": [],
-        },
-    ]
-
-    export_path = test_settings.export_dir / f"{song_id}.json"
-    assert export_path.exists()
+    return job_payload["result"]["songId"]
 
 
 def test_get_song_returns_404_for_unknown_song(client: TestClient) -> None:

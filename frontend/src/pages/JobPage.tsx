@@ -1,21 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { JobStatusCard } from '../components/JobStatusCard'
 import { PageShell } from '../components/PageShell'
 import { SectionCard } from '../components/SectionCard'
-import { createAlignment, getJob, getSource } from '../lib/api'
+import { getJob, getSource } from '../lib/api'
 import { clearWorkflow, loadWorkflow, saveWorkflow } from '../lib/workflow'
 import type { JobStatus, JobType, WorkflowState } from '../types/api'
 
 export function JobPage() {
   const { jobId = '' } = useParams()
   const navigate = useNavigate()
-  const [workflow, setWorkflow] = useState<WorkflowState | null>(() => loadWorkflow())
-  const [jobError, setJobError] = useState<string | null>(null)
-  const hasStartedAlignmentRef = useRef(false)
+  const [workflow] = useState<WorkflowState | null>(() => loadWorkflow())
 
-  const currentJobId = workflow?.alignmentJobId ?? workflow?.sourceJobId ?? jobId
+  const currentJobId = workflow?.lrcJobId ?? workflow?.sourceJobId ?? jobId
 
   const jobQuery = useQuery({
     queryKey: ['job', currentJobId],
@@ -44,7 +42,7 @@ export function JobPage() {
       return
     }
 
-    if ((job.type === 'alignment' || job.type === 'lrc_import' || job.type === 'spotify_import') && job.status === 'done' && songId) {
+    if ((job.type === 'lrc_import' || job.type === 'spotify_import') && job.status === 'done' && songId) {
       if (workflow && workflow.songId !== songId) {
         saveWorkflow({ ...workflow, songId })
       }
@@ -60,38 +58,12 @@ export function JobPage() {
       return
     }
 
-    if (!workflow) {
-      return
-    }
-
-    if (job.type === 'youtube_import' && job.status === 'done' && !workflow.alignmentJobId && !hasStartedAlignmentRef.current) {
-      hasStartedAlignmentRef.current = true
-      void createAlignment({
-        sourceId: workflow.sourceId,
-        language: workflow.language,
-        lyricsText: workflow.lyricsText,
-        translations: workflow.translationsText
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean),
-      })
-        .then((alignment) => {
-          const nextWorkflow = { ...workflow, alignmentJobId: alignment.jobId }
-          setWorkflow(nextWorkflow)
-          saveWorkflow(nextWorkflow)
-          navigate(`/jobs/${alignment.jobId}`, { replace: true })
-        })
-        .catch((error: Error) => {
-          setJobError(error.message)
-          hasStartedAlignmentRef.current = false
-        })
-    }
   }, [jobQuery.data, navigate, workflow])
 
-  const completedSongId = jobQuery.data?.type === 'alignment' || jobQuery.data?.type === 'lrc_import' || jobQuery.data?.type === 'spotify_import'
+  const completedSongId = jobQuery.data?.type === 'lrc_import' || jobQuery.data?.type === 'spotify_import'
     ? extractSongId(jobQuery.data.result)
     : undefined
-  const displayedError = jobError ?? jobQuery.data?.errorMessage ?? (jobQuery.data?.status === 'failed' ? 'The current job failed.' : null)
+  const displayedError = jobQuery.data?.errorMessage ?? (jobQuery.data?.status === 'failed' ? 'The current job failed.' : null)
   const jobWarnings = extractWarnings(jobQuery.data?.result)
 
   const title = useMemo(() => {
@@ -101,9 +73,6 @@ export function JobPage() {
     }
     if (type === 'spotify_import') {
       return 'Importing Spotify source with spotdl'
-    }
-    if (type === 'alignment') {
-      return 'Building synced lyrics'
     }
     if (type === 'lrc_import') {
       return 'Importing paired LRC timing'
@@ -154,14 +123,10 @@ export function JobPage() {
                 <span>Source id</span>
                 <span className="inline-code">{workflow?.sourceId ?? 'Not set'}</span>
               </div>
-              <div className="detail-row">
-                <span>Language</span>
-                <strong>{workflow?.language.toUpperCase() ?? 'N/A'}</strong>
-              </div>
             </div>
             {!workflow ? (
               <div className="error-state" style={{ marginTop: 16 }}>
-                Workflow context is missing in session storage. This page can still show job status, but source import jobs may not continue into the next step automatically.
+                Workflow context is missing in session storage. This page can still show job status, but source-specific follow-up steps may be unavailable.
               </div>
             ) : null}
           </SectionCard>
@@ -196,7 +161,7 @@ export function JobPage() {
             <div className="quick-list">
               <div className="metric">
                 <strong>Import complete</strong>
-                <span className="muted">YouTube sources continue into lyric alignment, Spotify sources can open the generated player directly, and uploaded audio can finish through the LRC import path.</span>
+                <span className="muted">LRC import jobs create the player directly. YouTube sources currently stop after audio import until automatic LRC retrieval is connected.</span>
               </div>
               <div className="metric">
                 <strong>Song payload complete</strong>
@@ -233,9 +198,6 @@ function inferMessage(type: JobType, status: JobStatus) {
   }
   if (type === 'spotify_import') {
     return 'Downloading with spotdl, importing synced LRC, and preparing the player payload.'
-  }
-  if (type === 'alignment') {
-    return 'Creating the timed lyric payload used by the player.'
   }
   if (type === 'lrc_import') {
     return 'Parsing paired bilingual LRC timing and exporting the player payload.'

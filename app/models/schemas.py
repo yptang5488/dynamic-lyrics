@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 SourceType = Literal["upload", "youtube", "spotify"]
 SourceStatus = Literal["queued", "processing", "ready", "failed"]
-JobType = Literal["youtube_import", "spotify_import", "alignment", "lrc_import"]
+JobType = Literal["youtube_import", "spotify_import", "lrc_import"]
 JobStatus = Literal["queued", "processing", "done", "failed"]
 
 
@@ -45,7 +45,6 @@ class YoutubeImportResponse(BaseModel):
 
 class SpotifyImportRequest(BaseModel):
     query: str
-    language: str = "unknown"
 
     @model_validator(mode="after")
     def validate_query(self) -> "SpotifyImportRequest":
@@ -62,24 +61,8 @@ class SpotifyImportResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-class AlignmentRequest(BaseModel):
-    source_id: str = Field(alias="sourceId")
-    language: str
-    lyrics_text: str = Field(alias="lyricsText")
-    translations: list[str] | None = None
-
-    model_config = {"populate_by_name": True}
-
-    @model_validator(mode="after")
-    def validate_lyrics(self) -> "AlignmentRequest":
-        if not self.lyrics_text.strip():
-            raise ValueError("lyricsText must not be empty")
-        return self
-
-
 class LrcImportRequest(BaseModel):
     source_id: str = Field(alias="sourceId")
-    language: str
     lrc_text: str = Field(alias="lrcText")
 
     model_config = {"populate_by_name": True}
@@ -141,7 +124,6 @@ class SongCatalogEntry(BaseModel):
     id: str
     title: str
     artist: str
-    language: str
     has_lyrics: bool = Field(alias="hasLyrics")
     has_translation: bool = Field(alias="hasTranslation")
     has_notes: bool = Field(alias="hasNotes")
