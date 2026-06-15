@@ -125,6 +125,16 @@ export async function updateSongLyricOffset(songId: string, lyricOffset: number)
   return parseResponse<SongResponse>(response)
 }
 
+export async function updateSongMetadata(songId: string, title: string, artist: string) {
+  const response = await fetch(resolveUrl(`/api/songs/${songId}/metadata`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, artist }),
+  })
+
+  return parseResponse<SongResponse>(response)
+}
+
 export async function updateSongLyricNotes(
   songId: string,
   lyricNotes: Array<{ lineId: string; notes: Array<Record<string, unknown>> }>,

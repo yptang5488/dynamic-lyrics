@@ -69,6 +69,57 @@ def test_update_song_lyric_offset_persists(client) -> None:
     assert client.get("/api/songs/song_offset_case").json()["lyricOffset"] == 1.2
 
 
+def test_update_song_metadata_persists(client) -> None:
+    timestamp = utc_now()
+    song_payload = {
+        "id": "song_metadata_case",
+        "title": "Old Title",
+        "artist": "Old Artist",
+        "audio": {"sourceId": "src_metadata_case", "playbackUrl": "/media/test.mp3"},
+        "lyrics": [],
+    }
+    insert_record(
+        "sources",
+        {
+            "id": "src_metadata_case",
+            "type": "upload",
+            "status": "ready",
+            "title": "Old Title",
+            "artist": "Old Artist",
+            "playback_url": "/media/test.mp3",
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+    insert_record(
+        "songs",
+        {
+            "id": "song_metadata_case",
+            "source_id": "src_metadata_case",
+            "title": "Old Title",
+            "artist": "Old Artist",
+            "lyrics_json": json_dumps(song_payload),
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+
+    response = client.patch(
+        "/api/songs/song_metadata_case/metadata",
+        json={"title": " New Title ", "artist": " New Artist "},
+    )
+    response.raise_for_status()
+
+    assert response.json()["title"] == "New Title"
+    assert response.json()["artist"] == "New Artist"
+    assert client.get("/api/songs/song_metadata_case").json()["title"] == "New Title"
+    catalog_entry = next(
+        song for song in client.get("/api/songs").json() if song["id"] == "song_metadata_case"
+    )
+    assert catalog_entry["title"] == "New Title"
+    assert catalog_entry["artist"] == "New Artist"
+
+
 def test_update_song_lyric_notes_persists(client) -> None:
     timestamp = utc_now()
     song_payload = {

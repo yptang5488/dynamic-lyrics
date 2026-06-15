@@ -151,6 +151,11 @@ class SongLyricOffsetUpdateRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class SongMetadataUpdateRequest(BaseModel):
+    title: str
+    artist: str
+
+
 class SongLyricNotesUpdate(BaseModel):
     line_id: str = Field(alias="lineId")
     notes: list[dict[str, Any]] = Field(default_factory=list)

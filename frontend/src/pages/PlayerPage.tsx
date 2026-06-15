@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { LyricsPanel } from '../components/LyricsPanel'
 import { PageShell } from '../components/PageShell'
 import { PlayerControls } from '../components/PlayerControls'
-import { getSong, resolveMediaUrl, updateSongLyricNotes, updateSongLyricOffset } from '../lib/api'
+import { getSong, resolveMediaUrl, updateSongLyricNotes, updateSongLyricOffset, updateSongMetadata } from '../lib/api'
 import type { SongLyricLine } from '../types/api'
 
 const EMPTY_LYRICS: SongLyricLine[] = []
@@ -25,6 +25,9 @@ export function PlayerPage() {
   const [timingOffset, setTimingOffset] = useState(0)
   const [draftTimingOffset, setDraftTimingOffset] = useState(0)
   const [isCompactCalibrationOpen, setIsCompactCalibrationOpen] = useState(false)
+  const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false)
+  const [draftTitle, setDraftTitle] = useState('')
+  const [draftArtist, setDraftArtist] = useState('')
   const [editedLineNotes, setEditedLineNotes] = useState<Record<string, Array<Record<string, unknown>>>>({})
   const [activeSongId, setActiveSongId] = useState(songId)
   const [syncedOffsetKey, setSyncedOffsetKey] = useState('')
@@ -51,6 +54,15 @@ export function PlayerPage() {
       if (updatedLine) {
         setEditedLineNotes((current) => ({ ...current, [variables.lineId]: updatedLine.notes }))
       }
+    },
+  })
+  const metadataMutation = useMutation({
+    mutationFn: ({ title, artist }: { title: string; artist: string }) => updateSongMetadata(songId, title, artist),
+    onSuccess: (song) => {
+      queryClient.setQueryData(['song', song.id], song)
+      setDraftTitle(song.title)
+      setDraftArtist(song.artist)
+      setIsMetadataEditorOpen(false)
     },
   })
 
@@ -88,6 +100,9 @@ export function PlayerPage() {
     setIsEditingLyrics(false)
     setSelectedEditLineId(null)
     setIsCompactCalibrationOpen(false)
+    setIsMetadataEditorOpen(false)
+    setDraftTitle('')
+    setDraftArtist('')
     setTimingOffset(0)
     setDraftTimingOffset(0)
     setSyncedOffsetKey('')
@@ -159,7 +174,24 @@ export function PlayerPage() {
 
   function toggleCompactCalibrationSettings() {
     setDraftTimingOffset(timingOffset)
+    setIsMetadataEditorOpen(false)
     setIsCompactCalibrationOpen((value) => !value)
+  }
+
+  function toggleMetadataEditor() {
+    const song = songQuery.data
+    if (!song) {
+      return
+    }
+
+    setDraftTitle(song.title)
+    setDraftArtist(song.artist)
+    setIsCompactCalibrationOpen(false)
+    setIsMetadataEditorOpen((value) => !value)
+  }
+
+  function saveMetadata() {
+    metadataMutation.mutate({ title: draftTitle.trim(), artist: draftArtist.trim() })
   }
 
   function applyCalibrationSettings() {
@@ -239,6 +271,7 @@ export function PlayerPage() {
   }
 
   const song = songQuery.data
+  const canSaveMetadata = draftTitle.trim().length > 0 && draftArtist.trim().length > 0 && !metadataMutation.isPending
 
   return (
     <PageShell
@@ -248,7 +281,7 @@ export function PlayerPage() {
       hideHeader
     >
       <div className="page-grid">
-        <section className={`player-hero${isCompactCalibrationOpen ? ' player-hero--popover-open' : ''}`} aria-label="Playback controls">
+        <section className={`player-hero${isCompactCalibrationOpen || isMetadataEditorOpen ? ' player-hero--popover-open' : ''}`} aria-label="Playback controls">
           <Link className="player-hero__back" to="/" aria-label="Back to library">
             <span aria-hidden="true">←</span>
             <span>Back to library</span>
@@ -258,42 +291,80 @@ export function PlayerPage() {
             title={song.title}
             artist={song.artist}
             actions={(
-              <div className="player-calibration">
-                <button
-                  type="button"
-                  className="secondary-button player-calibration__toggle"
-                  onClick={toggleCompactCalibrationSettings}
-                  aria-expanded={isCompactCalibrationOpen}
-                  aria-controls="compact-sync-offset-controls"
-                >
-                  Calibration settings
-                </button>
-                {isCompactCalibrationOpen ? (
-                  <div id="compact-sync-offset-controls" className="player-calibration__panel">
-                    <div className="player-calibration__header">
-                      <div className="player-calibration__value">Offset {formatSignedSeconds(draftTimingOffset)}</div>
+              <div className="player-toolbar-actions">
+                <div className="player-calibration">
+                  <button
+                    type="button"
+                    className="secondary-button player-calibration__toggle"
+                    onClick={toggleMetadataEditor}
+                    aria-expanded={isMetadataEditorOpen}
+                    aria-controls="song-metadata-editor"
+                  >
+                    Edit details
+                  </button>
+                  {isMetadataEditorOpen ? (
+                    <div id="song-metadata-editor" className="player-calibration__panel">
+                      <label>
+                        <span className="field-label">Song title</span>
+                        <input className="field" value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} />
+                      </label>
+                      <label>
+                        <span className="field-label">Artist</span>
+                        <input className="field" value={draftArtist} onChange={(event) => setDraftArtist(event.target.value)} />
+                      </label>
                       <div className="player-calibration__header-actions">
-                        <button type="button" className="primary-button player-calibration__small-button" onClick={applyCalibrationSettings} disabled={lyricOffsetMutation.isPending}>
-                          {lyricOffsetMutation.isPending ? 'Saving...' : 'Apply'}
+                        <button type="button" className="primary-button player-calibration__small-button" onClick={saveMetadata} disabled={!canSaveMetadata}>
+                          {metadataMutation.isPending ? 'Saving...' : 'Save'}
                         </button>
-                        <button type="button" className="ghost-button player-calibration__small-button" onClick={() => applyDraftOffset(0)} disabled={draftTimingOffset === 0}>
-                          Reset
+                        <button type="button" className="ghost-button player-calibration__small-button" onClick={toggleMetadataEditor}>
+                          Cancel
                         </button>
                       </div>
+                      {metadataMutation.isError ? (
+                        <div className="error-state">
+                          {metadataMutation.error instanceof Error ? metadataMutation.error.message : 'Failed to save song details.'}
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="player-calibration__actions player-calibration__actions--nudge">
-                      <button type="button" className="ghost-button" onClick={() => handleNudgeTiming(-1)}>-1s</button>
-                      <button type="button" className="ghost-button" onClick={() => handleNudgeTiming(-0.5)}>-0.5s</button>
-                      <button type="button" className="ghost-button" onClick={() => handleNudgeTiming(0.5)}>+0.5s</button>
-                      <button type="button" className="ghost-button" onClick={() => handleNudgeTiming(1)}>+1s</button>
-                    </div>
-                    {lyricOffsetMutation.isError ? (
-                      <div className="error-state">
-                        {lyricOffsetMutation.error instanceof Error ? lyricOffsetMutation.error.message : 'Failed to save lyric offset.'}
+                  ) : null}
+                </div>
+                <div className="player-calibration">
+                  <button
+                    type="button"
+                    className="secondary-button player-calibration__toggle"
+                    onClick={toggleCompactCalibrationSettings}
+                    aria-expanded={isCompactCalibrationOpen}
+                    aria-controls="compact-sync-offset-controls"
+                  >
+                    Calibration settings
+                  </button>
+                  {isCompactCalibrationOpen ? (
+                    <div id="compact-sync-offset-controls" className="player-calibration__panel">
+                      <div className="player-calibration__header">
+                        <div className="player-calibration__value">Offset {formatSignedSeconds(draftTimingOffset)}</div>
+                        <div className="player-calibration__header-actions">
+                          <button type="button" className="primary-button player-calibration__small-button" onClick={applyCalibrationSettings} disabled={lyricOffsetMutation.isPending}>
+                            {lyricOffsetMutation.isPending ? 'Saving...' : 'Apply'}
+                          </button>
+                          <button type="button" className="ghost-button player-calibration__small-button" onClick={() => applyDraftOffset(0)} disabled={draftTimingOffset === 0}>
+                            Reset
+                          </button>
+                        </div>
                       </div>
-                    ) : null}
-                  </div>
-                ) : null}
+                      <div className="player-calibration__actions player-calibration__actions--nudge">
+                        <button type="button" className="ghost-button" onClick={() => handleNudgeTiming(-1)}>-1s</button>
+                        <button type="button" className="ghost-button" onClick={() => handleNudgeTiming(-0.5)}>-0.5s</button>
+                        <button type="button" className="ghost-button" onClick={() => handleNudgeTiming(0.5)}>+0.5s</button>
+                        <button type="button" className="ghost-button" onClick={() => handleNudgeTiming(1)}>+1s</button>
+                      </div>
+                      {lyricOffsetMutation.isError ? (
+                        <div className="error-state">
+                          {lyricOffsetMutation.error instanceof Error ? lyricOffsetMutation.error.message : 'Failed to save lyric offset.'}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             )}
             isPlaying={isPlaying}

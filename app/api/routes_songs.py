@@ -16,6 +16,7 @@ from app.models.schemas import (
     SongCatalogEntry,
     SongLyricNotesUpdateRequest,
     SongLyricOffsetUpdateRequest,
+    SongMetadataUpdateRequest,
     SongResponse,
 )
 from app.services.chant_romanization import normalize_chant_notes
@@ -55,6 +56,39 @@ def get_song(song_id: str) -> SongResponse:
         )
     payload = json_loads(song["lyrics_json"], {})
     return SongResponse.model_validate(payload)
+
+
+@router.patch("/{song_id}/metadata", response_model=SongResponse)
+def update_song_metadata(song_id: str, request: SongMetadataUpdateRequest) -> SongResponse:
+    song = fetch_one("songs", song_id)
+    if not song:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="song not found"
+        )
+
+    title = request.title.strip()
+    artist = request.artist.strip()
+    if not title or not artist:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="title and artist are required",
+        )
+
+    payload = SongResponse.model_validate(json_loads(song["lyrics_json"], {}))
+    next_payload = payload.model_dump(by_alias=True)
+    next_payload["title"] = title
+    next_payload["artist"] = artist
+    update_record(
+        "songs",
+        song_id,
+        {
+            "title": title,
+            "artist": artist,
+            "lyrics_json": json_dumps(next_payload),
+            "updated_at": utc_now(),
+        },
+    )
+    return SongResponse.model_validate(next_payload)
 
 
 @router.patch("/{song_id}/lyric-offset", response_model=SongResponse)

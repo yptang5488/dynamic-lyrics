@@ -524,6 +524,13 @@ button {
   justify-self: end;
 }
 
+.player-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .player-calibration {
   position: relative;
   z-index: 2;
