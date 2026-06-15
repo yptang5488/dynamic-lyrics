@@ -18,6 +18,7 @@ export function PlayerPage() {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [showTranslation, setShowTranslation] = useState(true)
+  const [showChantRomanization, setShowChantRomanization] = useState(true)
   const [autoScroll, setAutoScroll] = useState(true)
   const [isEditingLyrics, setIsEditingLyrics] = useState(false)
   const [selectedEditLineId, setSelectedEditLineId] = useState<string | null>(null)
@@ -44,8 +45,12 @@ export function PlayerPage() {
     mutationFn: ({ lineId, notes }: { lineId: string; notes: Array<Record<string, unknown>> }) => (
       updateSongLyricNotes(songId, [{ lineId, notes }])
     ),
-    onSuccess: (song) => {
+    onSuccess: (song, variables) => {
       queryClient.setQueryData(['song', song.id], song)
+      const updatedLine = song.lyrics.find((line) => line.id === variables.lineId)
+      if (updatedLine) {
+        setEditedLineNotes((current) => ({ ...current, [variables.lineId]: updatedLine.notes }))
+      }
     },
   })
 
@@ -179,9 +184,15 @@ export function PlayerPage() {
       }
 
       const nextNotes = [...notes]
-      nextNotes[noteIndex] = { ...nextNotes[noteIndex], text }
+      const nextNote = { ...nextNotes[noteIndex] }
+      delete nextNote.romanizedText
+      nextNotes[noteIndex] = { ...nextNote, text }
       return nextNotes
     })
+  }
+
+  function handleDeleteChantNote(line: SongLyricLine, noteIndex: number) {
+    updateNotesForLine(line, (notes) => notes.filter((_, index) => index !== noteIndex))
   }
 
   function handleAddChantNote(line: SongLyricLine, note: Record<string, unknown>) {
@@ -298,14 +309,17 @@ export function PlayerPage() {
           activeLineId={activeLine?.id}
           selectedEditLineId={selectedEditLineId}
           showTranslation={showTranslation}
+          showChantRomanization={showChantRomanization}
           autoScroll={autoScroll}
           isEditing={isEditingLyrics}
           onToggleTranslation={() => setShowTranslation((value) => !value)}
+          onToggleChantRomanization={() => setShowChantRomanization((value) => !value)}
           onToggleAutoScroll={() => setAutoScroll((value) => !value)}
           onToggleEditing={toggleLyricsEditing}
           onSeekToLine={handleSeekToLine}
           onSelectEditLine={handleSelectEditLine}
           onUpdateChantText={handleUpdateChantText}
+          onDeleteChantNote={handleDeleteChantNote}
           onAddChantNote={handleAddChantNote}
         />
       </div>

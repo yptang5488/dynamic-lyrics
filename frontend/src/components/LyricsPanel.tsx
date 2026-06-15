@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState, type MouseEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { formatTime } from '../lib/time'
 import type { SongLyricLine } from '../types/api'
 
@@ -17,11 +18,13 @@ interface ChantNote {
   mode: 'inline' | 'standalone'
   label: 'chant' | 'sing-along'
   text: string
+  romanizedText?: string
   placement: ChantPlacement
   anchor: ChantAnchor | null
 }
 
 type UpdateChantText = (line: SongLyricLine, noteIndex: number, text: string) => void
+type DeleteChantNote = (line: SongLyricLine, noteIndex: number) => void
 type AddChantNote = (line: SongLyricLine, note: Record<string, unknown>) => void
 
 interface LyricSelection {
@@ -29,6 +32,17 @@ interface LyricSelection {
   text: string
   charStart: number
   charEnd: number
+}
+
+interface SelectionPopover {
+  lineId: string
+  x: number
+  y: number
+}
+
+interface ActiveLyricSelection {
+  line: SongLyricLine
+  container: HTMLElement
 }
 
 interface PendingChant {
@@ -43,14 +57,17 @@ interface LyricsPanelProps {
   activeLineId?: string
   selectedEditLineId?: string | null
   showTranslation: boolean
+  showChantRomanization: boolean
   autoScroll: boolean
   isEditing?: boolean
   onToggleTranslation?: () => void
+  onToggleChantRomanization?: () => void
   onToggleAutoScroll?: () => void
   onToggleEditing?: () => void
   onSeekToLine?: (line: SongLyricLine) => void
   onSelectEditLine?: (line: SongLyricLine) => void
   onUpdateChantText?: UpdateChantText
+  onDeleteChantNote?: DeleteChantNote
   onAddChantNote?: AddChantNote
 }
 
@@ -59,20 +76,27 @@ export function LyricsPanel({
   activeLineId,
   selectedEditLineId,
   showTranslation,
+  showChantRomanization,
   autoScroll,
   isEditing = false,
   onToggleTranslation,
+  onToggleChantRomanization,
   onToggleAutoScroll,
   onToggleEditing,
   onSeekToLine,
   onSelectEditLine,
   onUpdateChantText,
+  onDeleteChantNote,
   onAddChantNote,
 }: LyricsPanelProps) {
   const listRef = useRef<HTMLDivElement | null>(null)
+  const cardRef = useRef<HTMLElement | null>(null)
   const activeRef = useRef<HTMLDivElement | null>(null)
+  const isSelectingRef = useRef(false)
+  const activeLyricSelectionRef = useRef<ActiveLyricSelection | null>(null)
   const [editingChantKey, setEditingChantKey] = useState<string | null>(null)
   const [lyricSelection, setLyricSelection] = useState<LyricSelection | null>(null)
+  const [selectionPopover, setSelectionPopover] = useState<SelectionPopover | null>(null)
   const [pendingChant, setPendingChant] = useState<PendingChant | null>(null)
 
   useEffect(() => {
@@ -89,14 +113,55 @@ export function LyricsPanel({
 
   useEffect(() => {
     if (!isEditing) {
-      setEditingChantKey(null)
-      setLyricSelection(null)
-      setPendingChant(null)
+      return
     }
+
+    function clearClearedSelection() {
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+        setLyricSelection(null)
+        setSelectionPopover(null)
+      }
+    }
+
+    document.addEventListener('selectionchange', clearClearedSelection)
+    return () => document.removeEventListener('selectionchange', clearClearedSelection)
   }, [isEditing])
 
+  useEffect(() => {
+    if (!isEditing) {
+      return
+    }
+
+    function finishSelection(event: globalThis.PointerEvent) {
+      const activeSelection = activeLyricSelectionRef.current
+      if (!isSelectingRef.current || !activeSelection) {
+        return
+      }
+
+      isSelectingRef.current = false
+      activeLyricSelectionRef.current = null
+      handleLyricTextPointerUp(activeSelection.line, activeSelection.container, event.clientX, event.clientY, cardRef.current, setLyricSelection, setSelectionPopover, setPendingChant)
+    }
+
+    document.addEventListener('pointerup', finishSelection)
+    return () => document.removeEventListener('pointerup', finishSelection)
+  }, [isEditing])
+
+  function toggleEditing() {
+    if (isEditing) {
+      setEditingChantKey(null)
+      setLyricSelection(null)
+      setSelectionPopover(null)
+      setPendingChant(null)
+    }
+    onToggleEditing?.()
+  }
+
+  const selectedLine = lyricSelection ? lyrics.find((line) => line.id === lyricSelection.lineId) : null
+
   return (
-    <section className="lyrics-card">
+    <section ref={cardRef} className="lyrics-card">
       <div className="player-topline">
         <div>
           <h2>Lyrics flow</h2>
@@ -111,6 +176,13 @@ export function LyricsPanel({
           </button>
           <button
             type="button"
+            className={`chip-button chip-button--compact${showChantRomanization ? ' is-active' : ''}`}
+            onClick={onToggleChantRomanization}
+          >
+            Romanization {showChantRomanization ? 'on' : 'off'}
+          </button>
+          <button
+            type="button"
             className={`chip-button chip-button--compact${autoScroll ? ' is-active' : ''}`}
             onClick={onToggleAutoScroll}
           >
@@ -119,7 +191,7 @@ export function LyricsPanel({
           <button
             type="button"
             className={`chip-button chip-button--compact${isEditing ? ' is-active' : ''}`}
-            onClick={onToggleEditing}
+            onClick={toggleEditing}
           >
             {isEditing ? 'Done editing' : 'Edit lyrics'}
           </button>
@@ -169,12 +241,29 @@ export function LyricsPanel({
               </span>
               <span
                 className="lyric-line__text"
-                onMouseUp={(event) => {
+                onPointerDown={(event) => {
+                  isSelectingRef.current = true
+                  activeLyricSelectionRef.current = { line, container: event.currentTarget }
+                  setSelectionPopover(null)
+                }}
+                onMouseMove={(event) => {
                   if (!isEditing) {
                     return
                   }
 
-                  handleLyricTextMouseUp(line, event, setLyricSelection, setPendingChant)
+                  event.currentTarget.style.cursor = isPointNearLyricText(event.currentTarget, event.clientX, event.clientY) ? 'text' : 'default'
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.cursor = ''
+                }}
+                onPointerUp={(event) => {
+                  if (!isEditing) {
+                    return
+                  }
+
+                  isSelectingRef.current = false
+                  activeLyricSelectionRef.current = null
+                  handleLyricTextMouseUp(line, event, cardRef.current, setLyricSelection, setSelectionPopover, setPendingChant)
                 }}
               >
                 {renderLyricText(
@@ -183,21 +272,13 @@ export function LyricsPanel({
                   editingChantKey,
                   setEditingChantKey,
                   onUpdateChantText,
+                  onDeleteChantNote,
                   pendingChant?.lineId === line.id ? pendingChant : null,
                   setPendingChant,
                   onAddChantNote,
+                  showChantRomanization,
                 )}
               </span>
-              {isEditing && lyricSelection?.lineId === line.id ? (
-                <span className="chant-selection-toolbar" onClick={(event) => event.stopPropagation()}>
-                  <button type="button" className="chip-button chip-button--compact" onClick={() => addSelectedChant(line, lyricSelection, 'inline', onAddChantNote, setLyricSelection)}>
-                    歌詞內應援
-                  </button>
-                  <button type="button" className="chip-button chip-button--compact" onClick={() => startPendingChant(lyricSelection, 'replace-phrase', setPendingChant, setLyricSelection)}>
-                    同時應援
-                  </button>
-                </span>
-              ) : null}
               {showTranslation && line.translation ? (
                 <span className="lyric-line__translation">{line.translation}</span>
               ) : null}
@@ -205,6 +286,20 @@ export function LyricsPanel({
           )
         })}
       </div>
+      {isEditing && selectedLine && lyricSelection && selectionPopover ? (
+        <div
+          className="chant-selection-popover"
+          style={{ left: selectionPopover.x, top: selectionPopover.y }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button type="button" className="chip-button chip-button--compact" onClick={() => addSelectedChant(selectedLine, lyricSelection, 'inline', onAddChantNote, setLyricSelection, setSelectionPopover)}>
+            Inline
+          </button>
+          <button type="button" className="chip-button chip-button--compact" onClick={() => startPendingChant(lyricSelection, 'replace-phrase', setPendingChant, setLyricSelection, setSelectionPopover)}>
+            Simultaneous
+          </button>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -215,9 +310,11 @@ function renderLyricText(
   editingChantKey: string | null,
   setEditingChantKey: (value: string | null) => void,
   onUpdateChantText?: UpdateChantText,
+  onDeleteChantNote?: DeleteChantNote,
   pendingChant?: PendingChant | null,
   setPendingChant?: (value: PendingChant | null) => void,
   onAddChantNote?: AddChantNote,
+  showChantRomanization = true,
 ) {
   const anchoredNotes = getChantNoteEntries(line).filter(({ note }) => hasRenderableAnchor(note))
   const pendingEntry = pendingChant ? buildPendingChantEntry(pendingChant) : null
@@ -262,17 +359,43 @@ function renderLyricText(
     const matchedText = line.text.slice(note.anchor.charStart, note.anchor.charEnd)
     parts.push(
       <Fragment key={`${note.anchor.charStart}-${note.anchor.charEnd}-${note.text}`}>
-        {note.placement === 'insert-at' ? null : (
-          <span className={note.placement === 'replace-phrase' ? 'chant-anchor chant-anchor--replace' : 'chant-anchor'}>
-            {matchedText}
+        {note.placement === 'insert-at' ? null : note.placement === 'inline' && isEditing ? (
+          <span className="chant-anchor-wrap">
+            <span className="chant-annotated">
+              <span className="chant-anchor">{matchedText}</span>
+              {showChantRomanization && note.romanizedText ? (
+                <span className="chant-romanization chant-romanization--inline">{note.romanizedText}</span>
+              ) : null}
+            </span>
+            <button
+              type="button"
+              className="chant-pill-delete"
+              aria-label="Delete inline fanchant"
+              onMouseDown={stopChantDeletePointerEvent}
+              onMouseUp={stopChantDeletePointerEvent}
+              onClick={(event) => {
+                event.stopPropagation()
+                setEditingChantKey(null)
+                onDeleteChantNote?.(line, noteIndex)
+              }}
+            >
+              ×
+            </button>
+          </span>
+        ) : (
+          <span className="chant-annotated">
+            <span className={note.placement === 'replace-phrase' ? 'chant-anchor chant-anchor--replace' : 'chant-anchor'}>{matchedText}</span>
+            {note.placement === 'inline' && showChantRomanization && note.romanizedText ? (
+              <span className="chant-romanization chant-romanization--inline">{note.romanizedText}</span>
+            ) : null}
           </span>
         )}
         {isPending && pendingChant && setPendingChant && onAddChantNote ? (
           renderPendingChantInput(line, pendingChant, setPendingChant, onAddChantNote)
         ) : note.placement === 'insert-at' ? (
-          renderEditableChantText(line, note, noteIndex, isEditing, editingChantKey, setEditingChantKey, onUpdateChantText, true)
+          renderEditableChantText(line, note, noteIndex, isEditing, editingChantKey, setEditingChantKey, onUpdateChantText, onDeleteChantNote, true, showChantRomanization)
         ) : note.placement === 'replace-phrase' ? (
-          renderEditableChantText(line, note, noteIndex, isEditing, editingChantKey, setEditingChantKey, onUpdateChantText, true)
+          renderEditableChantText(line, note, noteIndex, isEditing, editingChantKey, setEditingChantKey, onUpdateChantText, onDeleteChantNote, true, showChantRomanization)
         ) : null}
       </Fragment>,
     )
@@ -324,28 +447,48 @@ function readLyricSelection(line: SongLyricLine, container: HTMLElement): LyricS
 
 function handleLyricTextMouseUp(
   line: SongLyricLine,
-  event: MouseEvent<HTMLElement>,
+  event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement>,
+  popoverContainer: HTMLElement | null,
   setLyricSelection: (value: LyricSelection | null) => void,
+  setSelectionPopover: (value: SelectionPopover | null) => void,
   setPendingChant: (value: PendingChant | null) => void,
 ) {
   if (event.target instanceof HTMLElement && event.target.closest('.chant-pill, .chant-edit-field')) {
     return
   }
 
-  const selection = readLyricSelection(line, event.currentTarget)
+  handleLyricTextPointerUp(line, event.currentTarget, event.clientX, event.clientY, popoverContainer, setLyricSelection, setSelectionPopover, setPendingChant)
+}
+
+function handleLyricTextPointerUp(
+  line: SongLyricLine,
+  lyricTextElement: HTMLElement,
+  clientX: number,
+  clientY: number,
+  popoverContainer: HTMLElement | null,
+  setLyricSelection: (value: LyricSelection | null) => void,
+  setSelectionPopover: (value: SelectionPopover | null) => void,
+  setPendingChant: (value: PendingChant | null) => void,
+) {
+  const selection = readLyricSelection(line, lyricTextElement)
   if (selection) {
-    setPendingChant(null)
-    setLyricSelection(selection)
+    flushSync(() => {
+      setPendingChant(null)
+      setLyricSelection(selection)
+      setSelectionPopover(readSelectionPopover(line.id, clientX, clientY, popoverContainer))
+    })
     return
   }
 
-  const insertOffset = getClickLyricTextOffset(event.currentTarget, event.clientX, event.clientY)
+  const insertOffset = getClickLyricTextOffset(lyricTextElement, clientX, clientY)
   if (insertOffset === null) {
     setLyricSelection(null)
+    setSelectionPopover(null)
     return
   }
 
   setLyricSelection(null)
+  setSelectionPopover(null)
   setPendingChant({
     lineId: line.id,
     selection: {
@@ -359,6 +502,33 @@ function handleLyricTextMouseUp(
   })
 }
 
+function readSelectionPopover(lineId: string, clientX: number, clientY: number, container: HTMLElement | null): SelectionPopover | null {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0 || !container) {
+    return null
+  }
+
+  const range = selection.getRangeAt(0)
+  const rects = Array.from(range.getClientRects())
+  const selectedRect = rects.find((rect) => (
+    clientX >= rect.left &&
+    clientX <= rect.right &&
+    clientY >= rect.top &&
+    clientY <= rect.bottom
+  )) ?? rects.at(-1)
+  if (!selectedRect || (selectedRect.width === 0 && selectedRect.height === 0)) {
+    return null
+  }
+
+  const containerRect = container.getBoundingClientRect()
+
+  return {
+    lineId,
+    x: selectedRect.left + selectedRect.width / 2 - containerRect.left,
+    y: selectedRect.bottom - containerRect.top + 8,
+  }
+}
+
 function getLyricTextOffset(container: HTMLElement, target: Node, targetOffset: number) {
   let offset = 0
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
@@ -367,7 +537,7 @@ function getLyricTextOffset(container: HTMLElement, target: Node, targetOffset: 
     const node = walker.currentNode
     const element = node.parentElement
 
-    if (element?.closest('.chant-pill, .chant-edit-field')) {
+    if (element?.closest('.chant-pill, .chant-edit-field, .chant-pill-delete, .chant-romanization')) {
       continue
     }
 
@@ -382,6 +552,10 @@ function getLyricTextOffset(container: HTMLElement, target: Node, targetOffset: 
 }
 
 function getClickLyricTextOffset(container: HTMLElement, clientX: number, clientY: number) {
+  if (!isPointNearLyricText(container, clientX, clientY)) {
+    return null
+  }
+
   const documentWithCaret = document as Document & {
     caretRangeFromPoint?: (x: number, y: number) => Range | null
     caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
@@ -399,12 +573,42 @@ function getClickLyricTextOffset(container: HTMLElement, clientX: number, client
   return getLyricTextOffset(container, range.startContainer, range.startOffset)
 }
 
+function isPointNearLyricText(container: HTMLElement, clientX: number, clientY: number) {
+  const padding = 28
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode
+    const element = node.parentElement
+    if (element?.closest('.chant-pill, .chant-edit-field, .chant-pill-delete, .chant-romanization')) {
+      continue
+    }
+
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    const isNearText = Array.from(range.getClientRects()).some((rect) => (
+      clientY >= rect.top - padding &&
+      clientY <= rect.bottom + padding &&
+      clientX >= rect.left - padding &&
+      clientX <= rect.right + padding
+    ))
+    range.detach()
+
+    if (isNearText) {
+      return true
+    }
+  }
+
+  return false
+}
+
 function addSelectedChant(
   line: SongLyricLine,
   selection: LyricSelection,
   placement: 'inline',
   onAddChantNote: AddChantNote | undefined,
   setLyricSelection: (value: LyricSelection | null) => void,
+  setSelectionPopover: (value: SelectionPopover | null) => void,
 ) {
   if (!onAddChantNote) {
     return
@@ -413,6 +617,7 @@ function addSelectedChant(
   onAddChantNote(line, buildChantNote(line, selection, placement, selection.text))
   window.getSelection()?.removeAllRanges()
   setLyricSelection(null)
+  setSelectionPopover(null)
 }
 
 function startPendingChant(
@@ -420,15 +625,17 @@ function startPendingChant(
   placement: 'replace-phrase',
   setPendingChant: (value: PendingChant | null) => void,
   setLyricSelection: (value: LyricSelection | null) => void,
+  setSelectionPopover: (value: SelectionPopover | null) => void,
 ) {
   setPendingChant({
     lineId: selection.lineId,
     selection,
     placement,
-    text: selection.text,
+    text: '',
   })
   window.getSelection()?.removeAllRanges()
   setLyricSelection(null)
+  setSelectionPopover(null)
 }
 
 function buildPendingChantEntry(pendingChant: PendingChant) {
@@ -474,7 +681,7 @@ function renderPendingChantInput(
         className="field"
         value={pendingChant.text}
         autoFocus
-        placeholder="應援詞"
+        placeholder="fanchant"
         onChange={(event) => setPendingChant({ ...pendingChant, text: event.target.value })}
         onBlur={commitPendingChant}
         onKeyDown={(event) => {
@@ -536,12 +743,21 @@ function renderEditableChantText(
   editingChantKey: string | null,
   setEditingChantKey: (value: string | null) => void,
   onUpdateChantText: UpdateChantText | undefined,
+  onDeleteChantNote: DeleteChantNote | undefined,
   isInline: boolean,
+  showChantRomanization: boolean,
 ) {
   const chantKey = `${line.id}:${noteIndex}`
   const isEditingThisChant = editingChantKey === chantKey
 
   if (isEditing && isEditingThisChant) {
+    const finishEditing = () => {
+      setEditingChantKey(null)
+      if (!note.text.trim() && (note.placement === 'insert-at' || note.placement === 'replace-phrase')) {
+        onDeleteChantNote?.(line, noteIndex)
+      }
+    }
+
     return (
       <label
         key={`chant-edit-${noteIndex}`}
@@ -553,7 +769,7 @@ function renderEditableChantText(
           value={note.text}
           autoFocus
           onChange={(event) => onUpdateChantText?.(line, noteIndex, event.target.value)}
-          onBlur={() => setEditingChantKey(null)}
+          onBlur={finishEditing}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === 'Escape') {
               event.currentTarget.blur()
@@ -564,23 +780,50 @@ function renderEditableChantText(
     )
   }
 
-  return (
-    <button
-      key={`chant-${note.text}-${noteIndex}`}
-      type="button"
-      className={`chant-pill chant-pill--${note.label}${isEditing ? ' chant-pill--editable' : ''}`}
-      onClick={(event) => {
-        if (!isEditing) {
-          return
-        }
+  const canDeleteDirectly = isEditing && (note.placement === 'insert-at' || note.placement === 'replace-phrase')
 
-        event.stopPropagation()
-        setEditingChantKey(chantKey)
-      }}
-    >
-      {note.text}
-    </button>
+  return (
+    <span className="chant-pill-wrap">
+      <button
+        type="button"
+        className={`chant-pill chant-pill--${note.label}${isEditing ? ' chant-pill--editable' : ''}`}
+        onClick={(event) => {
+          if (!isEditing) {
+            return
+          }
+
+          event.stopPropagation()
+          setEditingChantKey(chantKey)
+        }}
+      >
+        <span className="chant-pill__text">{note.text}</span>
+        {showChantRomanization && note.romanizedText ? (
+          <span className="chant-romanization">{note.romanizedText}</span>
+        ) : null}
+      </button>
+      {canDeleteDirectly ? (
+        <button
+          type="button"
+          className="chant-pill-delete"
+          aria-label="Delete fanchant"
+          onMouseDown={stopChantDeletePointerEvent}
+          onMouseUp={stopChantDeletePointerEvent}
+          onClick={(event) => {
+            event.stopPropagation()
+            setEditingChantKey(null)
+            onDeleteChantNote?.(line, noteIndex)
+          }}
+        >
+          ×
+        </button>
+      ) : null}
+    </span>
   )
+}
+
+function stopChantDeletePointerEvent(event: MouseEvent<HTMLButtonElement>) {
+  event.preventDefault()
+  event.stopPropagation()
 }
 
 function getChantNoteEntries(line: SongLyricLine): Array<{ note: ChantNote; noteIndex: number }> {
@@ -606,6 +849,7 @@ function isChantNote(note: unknown): note is ChantNote {
     (candidate.mode === 'inline' || candidate.mode === 'standalone') &&
     (candidate.label === 'chant' || candidate.label === 'sing-along') &&
     typeof candidate.text === 'string' &&
+    (candidate.romanizedText === undefined || typeof candidate.romanizedText === 'string') &&
     isChantPlacement(candidate.placement) &&
     (candidate.anchor === null || isChantAnchor(candidate.anchor))
   )

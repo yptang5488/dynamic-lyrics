@@ -18,6 +18,7 @@ from app.models.schemas import (
     SongLyricOffsetUpdateRequest,
     SongResponse,
 )
+from app.services.chant_romanization import normalize_chant_notes
 
 router = APIRouter(prefix="/songs", tags=["songs"])
 
@@ -103,7 +104,7 @@ def update_song_lyric_notes(
     next_payload = payload.model_dump(by_alias=True)
     for line in next_payload["lyrics"]:
         if line["id"] in line_updates:
-            line["notes"] = line_updates[line["id"]]
+            line["notes"] = normalize_chant_notes(line_updates[line["id"]])
 
     update_record(
         "songs",

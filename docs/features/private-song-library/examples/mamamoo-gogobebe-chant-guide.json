@@ -1,0 +1,455 @@
+{
+  "schemaVersion": "chant-guide.v1",
+  "song": {
+    "title": "Gogobebe",
+    "artist": "Mamamoo"
+  },
+  "source": {
+    "url": "https://cheerpattern.wordpress.com/2019/03/15/mamamoo-gogobebe/",
+    "formatNotes": [
+      "Bold text wrapped in parentheses is treated as a standalone chant.",
+      "Bold text without parentheses is treated as an inline sing-along chant.",
+      "All schema fields and enum values are English; source lyric and chant text remains in the original language."
+    ]
+  },
+  "notesSchema": {
+    "type": "chant",
+    "mode": "inline | standalone",
+    "label": "sing-along | chant",
+    "placement": "inline | insert-at | replace-phrase",
+    "anchor": "null when the chant is not anchored to lyric text; otherwise includes lineMatchText, matchText, occurrence, charStart, charEnd, and optional sourceMark"
+  },
+  "guideLines": [
+    {
+      "lineIndex": 1,
+      "lineMatchText": "일루와 일루와 일루와 일루와",
+      "notes": []
+    },
+    {
+      "lineIndex": 2,
+      "lineMatchText": "일루와 일루와",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "김용선",
+          "placement": "insert-at",
+          "anchor": {
+            "matchText": "",
+            "occurrence": 0,
+            "charStart": 7,
+            "charEnd": 7
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 4,
+      "lineMatchText": "일루와 일루와",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "안혜진",
+          "placement": "insert-at",
+          "anchor": {
+            "matchText": "",
+            "occurrence": 0,
+            "charStart": 7,
+            "charEnd": 7
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 8,
+      "lineMatchText": "착한 척은 그만둬",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "정휘인",
+          "placement": "insert-at",
+          "anchor": {
+            "matchText": "",
+            "occurrence": 0,
+            "charStart": 9,
+            "charEnd": 9
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 10,
+      "lineMatchText": "뻔뻔하게 놀아 라 라 라",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "라 라 라",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "라 라 라",
+            "occurrence": 1,
+            "charStart": 8,
+            "charEnd": 13
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 12,
+      "lineMatchText": "별거 아닌 거에 의미 갖지 마 인마, oh ye",
+      "notes": []
+    },
+    {
+      "lineIndex": 16,
+      "lineMatchText": "그냥 잔을 부딪쳐, 짠",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "짠",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "짠",
+            "occurrence": 1,
+            "charStart": 12,
+            "charEnd": 13
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 20,
+      "lineMatchText": "뻔뻔하게 즐겨, drop drop drop",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "drop drop drop",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "drop drop drop",
+            "occurrence": 1,
+            "charStart": 9,
+            "charEnd": 23
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 21,
+      "lineMatchText": "고고베베",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "고고베베",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "고고베베",
+            "occurrence": 1,
+            "charStart": 0,
+            "charEnd": 4
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 23,
+      "lineMatchText": "던져 버려 suit and tie",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "숫앤타이",
+          "placement": "replace-phrase",
+          "anchor": {
+            "matchText": "tie",
+            "occurrence": 1,
+            "charStart": 15,
+            "charEnd": 18,
+            "sourceMark": "strikethrough"
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 24,
+      "lineMatchText": "드레스 코든 bling bling bling",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "고고베베",
+          "placement": "insert-at",
+          "anchor": {
+            "matchText": "",
+            "occurrence": 0,
+            "charStart": 24,
+            "charEnd": 24
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 25,
+      "lineMatchText": "너와 나의 mix and match",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "믹샌매치",
+          "placement": "replace-phrase",
+          "anchor": {
+            "matchText": "match",
+            "occurrence": 1,
+            "charStart": 14,
+            "charEnd": 19,
+            "sourceMark": "strikethrough"
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 27,
+      "lineMatchText": "고고베베",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "고고베베",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "고고베베",
+            "occurrence": 1,
+            "charStart": 0,
+            "charEnd": 4
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 29,
+      "lineMatchText": "뻔뻔하게 놀아",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "놀아",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "놀아",
+            "occurrence": 1,
+            "charStart": 5,
+            "charEnd": 7
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 30,
+      "lineMatchText": "미친 듯이 즐겨",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "즐겨",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "즐겨",
+            "occurrence": 1,
+            "charStart": 6,
+            "charEnd": 8
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 31,
+      "lineMatchText": "필요 없어, wrong and right",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "뤙앤라잇",
+          "placement": "replace-phrase",
+          "anchor": {
+            "matchText": "right",
+            "occurrence": 1,
+            "charStart": 17,
+            "charEnd": 22,
+            "sourceMark": "strikethrough"
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 32,
+      "lineMatchText": "On and on, on and on 고고베베",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "고고베베",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "고고베베",
+            "occurrence": 1,
+            "charStart": 20,
+            "charEnd": 24
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 51,
+      "lineMatchText": "무시해 잔소린 음소거 click click 삑",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "click click 삑",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "click click 삑",
+            "occurrence": 1,
+            "charStart": 11,
+            "charEnd": 24
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 89,
+      "lineMatchText": "Nine / Six",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "Nine / Six",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "Nine / Six",
+            "occurrence": 1,
+            "charStart": 0,
+            "charEnd": 10
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 90,
+      "lineMatchText": "Six nineteen",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "inline",
+          "label": "sing-along",
+          "text": "Six nineteen",
+          "placement": "inline",
+          "anchor": {
+            "matchText": "Six nineteen",
+            "occurrence": 1,
+            "charStart": 0,
+            "charEnd": 12
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 93,
+      "lineMatchText": "몸 다 풀었어",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "다 풀었어",
+          "placement": "insert-at",
+          "anchor": {
+            "matchText": "",
+            "occurrence": 0,
+            "charStart": 7,
+            "charEnd": 7
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 94,
+      "lineMatchText": "미칠 준비가 됐어",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "준비가 됐어",
+          "placement": "insert-at",
+          "anchor": {
+            "matchText": "",
+            "occurrence": 0,
+            "charStart": 9,
+            "charEnd": 9
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 98,
+      "lineMatchText": "고고베베",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "짝-짝-짝",
+          "placement": "insert-at",
+          "anchor": {
+            "matchText": "",
+            "occurrence": 0,
+            "charStart": 0,
+            "charEnd": 0
+          }
+        }
+      ]
+    },
+    {
+      "lineIndex": 128,
+      "lineMatchText": "고고베베",
+      "notes": [
+        {
+          "type": "chant",
+          "mode": "standalone",
+          "label": "chant",
+          "text": "김용선 문별이 정휘인 안혜진 마마무",
+          "placement": "insert-at",
+          "anchor": {
+            "matchText": "",
+            "occurrence": 0,
+            "charStart": 0,
+            "charEnd": 0
+          }
+        }
+      ]
+    }
+  ]
+}

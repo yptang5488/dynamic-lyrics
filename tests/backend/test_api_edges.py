@@ -120,6 +120,61 @@ def test_update_song_lyric_notes_persists(client) -> None:
     assert client.get("/api/songs/song_notes_case").json()["lyrics"][0]["notes"] == [note]
 
 
+def test_update_song_lyric_notes_normalizes_chant_romanization(client) -> None:
+    timestamp = utc_now()
+    song_payload = {
+        "id": "song_romanized_notes_case",
+        "title": "Romanized Notes Case",
+        "artist": "Tester",
+        "audio": {"sourceId": "src_romanized_notes_case", "playbackUrl": "/media/test.mp3"},
+        "lyrics": [
+            {
+                "id": "l1",
+                "start": 0,
+                "end": 1,
+                "text": "hello world",
+                "translation": None,
+                "confidence": 0.9,
+                "segments": [],
+                "notes": [],
+            }
+        ],
+    }
+    insert_record(
+        "songs",
+        {
+            "id": "song_romanized_notes_case",
+            "source_id": "src_romanized_notes_case",
+            "title": "Romanized Notes Case",
+            "artist": "Tester",
+            "lyrics_json": json_dumps(song_payload),
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+
+    response = client.patch(
+        "/api/songs/song_romanized_notes_case/lyric-notes",
+        json={
+            "lyricNotes": [
+                {
+                    "lineId": "l1",
+                    "notes": [
+                        {"type": "chant", "text": "김용선"},
+                        {"type": "chant", "text": "drop drop drop", "romanizedText": "stale"},
+                    ],
+                }
+            ]
+        },
+    )
+    response.raise_for_status()
+
+    assert response.json()["lyrics"][0]["notes"] == [
+        {"type": "chant", "text": "김용선", "romanizedText": "gimyongseon"},
+        {"type": "chant", "text": "drop drop drop"},
+    ]
+
+
 def test_import_youtube_rejects_invalid_url_payload(client) -> None:
     response = client.post("/api/sources/import-youtube", json={"url": "not-a-url"})
 

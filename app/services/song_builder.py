@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from app.config import settings
 from app.db.session import insert_record, json_dumps, utc_now
+from app.services.chant_romanization import normalize_lyric_notes
 
 
 def build_song(source: dict, aligned_lyrics: list[dict[str, object]]) -> dict:
@@ -25,7 +26,7 @@ def build_song(source: dict, aligned_lyrics: list[dict[str, object]]) -> dict:
             "duration": source.get("duration"),
         },
         "lyricOffset": 0,
-        "lyrics": aligned_lyrics,
+        "lyrics": normalize_lyric_notes(aligned_lyrics),
     }
 
     export_path = settings.export_dir / f"{song_id}.json"

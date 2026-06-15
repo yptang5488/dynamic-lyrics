@@ -145,6 +145,10 @@ button {
   padding: 24px;
 }
 
+.lyrics-card {
+  position: relative;
+}
+
 .hero-card {
   background: linear-gradient(135deg, rgba(255, 249, 238, 0.92), rgba(243, 251, 249, 0.82));
 }
@@ -687,6 +691,13 @@ button {
   box-shadow: 0 0 0 3px rgba(214, 138, 58, 0.12);
 }
 
+.chant-annotated {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.08;
+}
+
 .chant-anchor--replace {
   color: rgba(18, 48, 56, 0.48);
   text-decoration: line-through;
@@ -694,16 +705,81 @@ button {
   text-decoration-color: #c05c8d;
 }
 
+.chant-anchor-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
 .chant-pill {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   margin-left: 6px;
   padding: 3px 8px;
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: 1em;
   font-weight: 800;
   letter-spacing: 0.02em;
   vertical-align: 0.12em;
+}
+
+.chant-pill__text {
+  padding: 3px 8px;
+  border-radius: 9px;
+}
+
+.chant-pill--chant,
+.chant-pill--sing-along {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+.chant-romanization {
+  font-size: 0.68em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+  opacity: 0.74;
+}
+
+.chant-romanization--inline {
+  margin-top: 2px;
+  color: #9b551b;
+}
+
+.chant-pill-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.chant-pill-delete {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(192, 92, 141, 0.3);
+  border-radius: 999px;
+  background: #fff;
+  color: #9c376a;
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0;
+  transform: scale(0.82);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.chant-pill-wrap:hover .chant-pill-delete,
+.chant-anchor-wrap:hover .chant-pill-delete,
+.chant-pill-delete:focus-visible {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .chant-pill--editable {
@@ -715,14 +791,20 @@ button {
 }
 
 .chant-pill--chant {
-  background: rgba(192, 92, 141, 0.14);
   color: #9c376a;
+}
+
+.chant-pill--chant .chant-pill__text {
+  background: rgba(192, 92, 141, 0.14);
   border: 1px solid rgba(192, 92, 141, 0.18);
 }
 
 .chant-pill--sing-along {
-  background: rgba(15, 122, 116, 0.12);
   color: var(--accent);
+}
+
+.chant-pill--sing-along .chant-pill__text {
+  background: rgba(15, 122, 116, 0.12);
   border: 1px solid rgba(15, 122, 116, 0.16);
 }
 
@@ -732,16 +814,20 @@ button {
   color: var(--muted);
 }
 
-.chant-selection-toolbar {
+.chant-selection-popover {
+  position: absolute;
+  z-index: 20;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
-  padding: 8px;
-  border: 1px solid rgba(15, 122, 116, 0.14);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.72);
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 250, 242, 0.96);
+  box-shadow: 0 18px 42px rgba(40, 54, 54, 0.16);
+  backdrop-filter: blur(18px);
+  transform: translateX(-50%);
 }
 
 .lyric-line--active {
