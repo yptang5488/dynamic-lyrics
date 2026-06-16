@@ -1,7 +1,7 @@
 import type { PropsWithChildren, ReactNode } from 'react'
 
 interface PageShellProps extends PropsWithChildren {
-  eyebrow: string
+  eyebrow?: string
   title: string
   subtitle: string
   aside?: ReactNode
@@ -15,7 +15,7 @@ export function PageShell({ eyebrow, title, subtitle, aside, hideHeader = false,
         {hideHeader ? null : (
           <header className="app-header">
             <div>
-              <span className="eyebrow">{eyebrow}</span>
+              {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
               <h1 className="page-title">{title}</h1>
               <p className="page-subtitle">{subtitle}</p>
             </div>
