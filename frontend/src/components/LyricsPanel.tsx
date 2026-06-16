@@ -57,6 +57,7 @@ interface LyricsPanelProps {
   activeLineId?: string
   selectedEditLineId?: string | null
   showTranslation: boolean
+  hasTranslation: boolean
   showChantRomanization: boolean
   autoScroll: boolean
   isEditing?: boolean
@@ -76,6 +77,7 @@ export function LyricsPanel({
   activeLineId,
   selectedEditLineId,
   showTranslation,
+  hasTranslation,
   showChantRomanization,
   autoScroll,
   isEditing = false,
@@ -159,6 +161,7 @@ export function LyricsPanel({
   }
 
   const selectedLine = lyricSelection ? lyrics.find((line) => line.id === lyricSelection.lineId) : null
+  const canShowTranslation = showTranslation && hasTranslation
 
   return (
     <section ref={cardRef} className="lyrics-card">
@@ -169,10 +172,11 @@ export function LyricsPanel({
         <div className="mode-bar">
           <button
             type="button"
-            className={`chip-button chip-button--compact${showTranslation ? ' is-active' : ''}`}
+            className={`chip-button chip-button--compact${canShowTranslation ? ' is-active' : ''}`}
             onClick={onToggleTranslation}
+            disabled={!hasTranslation}
           >
-            Translation {showTranslation ? 'on' : 'off'}
+            Translation {canShowTranslation ? 'on' : 'off'}
           </button>
           <button
             type="button"
@@ -279,7 +283,7 @@ export function LyricsPanel({
                   showChantRomanization,
                 )}
               </span>
-              {showTranslation && line.translation ? (
+              {canShowTranslation && line.translation ? (
                 <span className="lyric-line__translation">{line.translation}</span>
               ) : null}
             </div>

@@ -692,10 +692,10 @@ button {
 }
 
 .chant-anchor {
+  padding: 6px 9px;
   border-radius: 8px;
   background: rgba(214, 138, 58, 0.18);
   color: #9b551b;
-  box-shadow: 0 0 0 3px rgba(214, 138, 58, 0.12);
 }
 
 .chant-annotated {

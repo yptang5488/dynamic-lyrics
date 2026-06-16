@@ -120,6 +120,7 @@ export function PlayerPage() {
   const baseLyrics = songQuery.data?.lyrics ?? EMPTY_LYRICS
   const originalLyrics = useMemo(() => applyEditedLineNotes(baseLyrics, editedLineNotes), [baseLyrics, editedLineNotes])
   const adjustedLyrics = useMemo(() => shiftLyrics(originalLyrics, timingOffset), [originalLyrics, timingOffset])
+  const hasTranslation = originalLyrics.some((line) => Boolean(line.translation?.trim()))
   const activeLine = useMemo(() => findActiveLine(adjustedLyrics, currentTime), [adjustedLyrics, currentTime])
   const offsetRangeStart = -OFFSET_RANGE_SECONDS
   const offsetRangeEnd = OFFSET_RANGE_SECONDS
@@ -380,6 +381,7 @@ export function PlayerPage() {
           activeLineId={activeLine?.id}
           selectedEditLineId={selectedEditLineId}
           showTranslation={showTranslation}
+          hasTranslation={hasTranslation}
           showChantRomanization={showChantRomanization}
           autoScroll={autoScroll}
           isEditing={isEditingLyrics}
