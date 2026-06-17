@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
-from app.db.session import insert_record, json_dumps, utc_now
+from app.db.session import fetch_one, insert_record, json_dumps, utc_now
 
 
 def test_list_songs_returns_empty_library(client: TestClient) -> None:
@@ -105,15 +107,67 @@ def test_list_songs_returns_catalog_entries(
 
 
 def test_delete_song_removes_it_from_catalog(
-    client: TestClient, wait_for_job_completion
+    client: TestClient, test_settings, wait_for_job_completion
 ) -> None:
     song_id = create_lrc_song(client, wait_for_job_completion, filename="duplicate.mp3")
+    export_path = test_settings.export_dir / f"{song_id}.json"
+    chant_guide_path = test_settings.raw_dir.parent / "chant-guides" / f"{song_id}.json"
+    chant_source_path = test_settings.raw_dir.parent / "chant-sources" / f"{song_id}.md"
+    chant_guide_path.parent.mkdir(parents=True)
+    chant_source_path.parent.mkdir(parents=True)
+    chant_guide_path.write_text("{}", encoding="utf-8")
+    chant_source_path.write_text("guide", encoding="utf-8")
+    source_id = client.get(f"/api/songs/{song_id}").json()["audio"]["sourceId"]
+    source = fetch_one("sources", source_id)
+    assert source is not None
+    original_path = Path(source["original_path"])
+    normalized_path = Path(source["normalized_path"])
 
     delete_response = client.delete(f"/api/songs/{song_id}")
 
     assert delete_response.status_code == 204
     assert client.get(f"/api/songs/{song_id}").status_code == 404
     assert client.get("/api/songs").json() == []
+    assert not export_path.exists()
+    assert not chant_guide_path.exists()
+    assert not chant_source_path.exists()
+    assert fetch_one("sources", source_id) is None
+    assert not original_path.exists()
+    assert not normalized_path.exists()
+
+
+def test_delete_song_keeps_shared_source_files(
+    client: TestClient, wait_for_job_completion
+) -> None:
+    song_id = create_lrc_song(client, wait_for_job_completion, filename="shared.mp3")
+    song = client.get(f"/api/songs/{song_id}").json()
+    source_id = song["audio"]["sourceId"]
+    source = fetch_one("sources", source_id)
+    assert source is not None
+    second_song_id = f"{song_id}_copy"
+    timestamp = utc_now()
+    insert_record(
+        "songs",
+        {
+            "id": second_song_id,
+            "source_id": source_id,
+            "title": "shared copy",
+            "artist": "unknown",
+            "lyrics_json": json_dumps({**song, "id": second_song_id}),
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+    original_path = Path(source["original_path"])
+    normalized_path = Path(source["normalized_path"])
+
+    delete_response = client.delete(f"/api/songs/{song_id}")
+
+    assert delete_response.status_code == 204
+    assert fetch_one("sources", source_id) is not None
+    assert original_path.exists()
+    assert normalized_path.exists()
+    assert client.get(f"/api/songs/{second_song_id}").status_code == 200
 
 
 def test_delete_song_returns_404_for_unknown_song(client: TestClient) -> None:

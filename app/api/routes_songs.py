@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import app.config as config
 from fastapi import APIRouter, HTTPException, status
@@ -187,7 +188,57 @@ def persist_song_payload(
 
 @router.delete("/{song_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_song(song_id: str) -> None:
+    song = fetch_one("songs", song_id)
+    if not song:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="song not found"
+        )
+
     if not delete_record("songs", song_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="song not found"
         )
+    delete_song_files(song_id)
+    delete_unused_source(song.get("source_id"))
+
+
+def delete_song_files(song_id: str) -> None:
+    data_dir = config.settings.raw_dir.parent
+    for path in (
+        config.settings.export_dir / f"{song_id}.json",
+        data_dir / "chant-guides" / f"{song_id}.json",
+        data_dir / "chant-sources" / f"{song_id}.md",
+    ):
+        path.unlink(missing_ok=True)
+
+
+def delete_unused_source(source_id: str | None) -> None:
+    if not source_id or source_is_used(source_id):
+        return
+
+    source = fetch_one("sources", source_id)
+    if not source:
+        return
+
+    delete_record("sources", source_id)
+    for value in (source.get("original_path"), source.get("normalized_path")):
+        if value:
+            delete_source_file(Path(value))
+
+
+def delete_source_file(path: Path) -> None:
+    data_dir = config.settings.raw_dir.parent.resolve()
+    resolved_path = path.resolve()
+    if resolved_path.is_relative_to(data_dir):
+        resolved_path.unlink(missing_ok=True)
+
+
+def source_is_used(source_id: str) -> bool:
+    songs_dir = config.settings.raw_dir.parent / "songs"
+    for path in songs_dir.glob("*.json"):
+        try:
+            if json.loads(path.read_text(encoding="utf-8")).get("source_id") == source_id:
+                return True
+        except (OSError, ValueError):
+            continue
+    return False
