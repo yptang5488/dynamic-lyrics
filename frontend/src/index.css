@@ -707,6 +707,37 @@ button {
   padding: 4px 10px 4px 4px;
 }
 
+.chant-event-add {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px dashed rgba(15, 122, 116, 0.22);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.34);
+  color: var(--accent);
+  font-weight: 700;
+  text-align: center;
+}
+
+.chant-event-editor {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.35fr) minmax(80px, 0.35fr) minmax(180px, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(15, 122, 116, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.chant-event-editor--existing {
+  grid-template-columns: minmax(80px, 0.35fr) minmax(80px, 0.35fr) minmax(180px, 1fr) auto;
+}
+
+.chant-event-delete:hover {
+  background: #f1e3de;
+  color: var(--danger);
+}
+
 .lyric-line {
   position: relative;
   width: 100%;
@@ -739,6 +770,13 @@ button {
   display: block;
   font-size: 1.1rem;
   font-weight: 700;
+}
+
+.lyric-line__text--chant-event {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
 .lyric-line--editing .lyric-line__text {

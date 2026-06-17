@@ -4,10 +4,11 @@ import { Link, useParams } from 'react-router-dom'
 import { LyricsPanel } from '../components/LyricsPanel'
 import { PageShell } from '../components/PageShell'
 import { PlayerControls } from '../components/PlayerControls'
-import { getSong, resolveMediaUrl, updateSongLyricNotes, updateSongLyricOffset, updateSongMetadata } from '../lib/api'
-import type { SongLyricLine } from '../types/api'
+import { getSong, resolveMediaUrl, updateSongChantEvents, updateSongLyricNotes, updateSongLyricOffset, updateSongMetadata } from '../lib/api'
+import type { SongChantEvent, SongLyricLine } from '../types/api'
 
 const EMPTY_LYRICS: SongLyricLine[] = []
+const EMPTY_CHANT_EVENTS: SongChantEvent[] = []
 const OFFSET_RANGE_SECONDS = 10
 
 export function PlayerPage() {
@@ -29,6 +30,7 @@ export function PlayerPage() {
   const [draftTitle, setDraftTitle] = useState('')
   const [draftArtist, setDraftArtist] = useState('')
   const [editedLineNotes, setEditedLineNotes] = useState<Record<string, Array<Record<string, unknown>>>>({})
+  const [editedChantEvents, setEditedChantEvents] = useState<SongChantEvent[] | null>(null)
   const [activeSongId, setActiveSongId] = useState(songId)
   const [syncedOffsetKey, setSyncedOffsetKey] = useState('')
 
@@ -54,6 +56,13 @@ export function PlayerPage() {
       if (updatedLine) {
         setEditedLineNotes((current) => ({ ...current, [variables.lineId]: updatedLine.notes }))
       }
+    },
+  })
+  const chantEventsMutation = useMutation({
+    mutationFn: (chantEvents: SongChantEvent[]) => updateSongChantEvents(songId, chantEvents),
+    onSuccess: (song) => {
+      queryClient.setQueryData(['song', song.id], song)
+      setEditedChantEvents(song.chantEvents)
     },
   })
   const metadataMutation = useMutation({
@@ -97,6 +106,7 @@ export function PlayerPage() {
   if (songId !== activeSongId) {
     setActiveSongId(songId)
     setEditedLineNotes({})
+    setEditedChantEvents(null)
     setIsEditingLyrics(false)
     setSelectedEditLineId(null)
     setIsCompactCalibrationOpen(false)
@@ -118,10 +128,13 @@ export function PlayerPage() {
   }
 
   const baseLyrics = songQuery.data?.lyrics ?? EMPTY_LYRICS
+  const baseChantEvents = editedChantEvents ?? songQuery.data?.chantEvents ?? EMPTY_CHANT_EVENTS
   const originalLyrics = useMemo(() => applyEditedLineNotes(baseLyrics, editedLineNotes), [baseLyrics, editedLineNotes])
   const adjustedLyrics = useMemo(() => shiftLyrics(originalLyrics, timingOffset), [originalLyrics, timingOffset])
+  const adjustedChantEvents = useMemo(() => shiftChantEvents(baseChantEvents, timingOffset), [baseChantEvents, timingOffset])
   const hasTranslation = originalLyrics.some((line) => Boolean(line.translation?.trim()))
   const activeLine = useMemo(() => findActiveLine(adjustedLyrics, currentTime), [adjustedLyrics, currentTime])
+  const activeChantEvent = useMemo(() => activeLine ? undefined : findActiveChantEvent(adjustedChantEvents, currentTime), [activeLine, adjustedChantEvents, currentTime])
   const offsetRangeStart = -OFFSET_RANGE_SECONDS
   const offsetRangeEnd = OFFSET_RANGE_SECONDS
 
@@ -157,6 +170,17 @@ export function PlayerPage() {
 
     audio.currentTime = line.start
     setCurrentTime(line.start)
+    void audio.play()
+  }
+
+  function handleSeekToChantEvent(event: SongChantEvent) {
+    const audio = audioRef.current
+    if (!audio) {
+      return
+    }
+
+    audio.currentTime = event.start
+    setCurrentTime(event.start)
     void audio.play()
   }
 
@@ -230,6 +254,12 @@ export function PlayerPage() {
 
   function handleAddChantNote(line: SongLyricLine, note: Record<string, unknown>) {
     updateNotesForLine(line, (notes) => [...notes, note])
+  }
+
+  function handleSaveChantEvents(events: SongChantEvent[]) {
+    const nextEvents = shiftChantEvents(events, -timingOffset).sort((left, right) => left.start - right.start)
+    setEditedChantEvents(nextEvents)
+    chantEventsMutation.mutate(nextEvents)
   }
 
   function updateNotesForLine(
@@ -378,7 +408,9 @@ export function PlayerPage() {
 
         <LyricsPanel
           lyrics={adjustedLyrics}
+          chantEvents={adjustedChantEvents}
           activeLineId={activeLine?.id}
+          activeChantEventId={activeChantEvent?.id}
           selectedEditLineId={selectedEditLineId}
           showTranslation={showTranslation}
           hasTranslation={hasTranslation}
@@ -390,10 +422,12 @@ export function PlayerPage() {
           onToggleAutoScroll={() => setAutoScroll((value) => !value)}
           onToggleEditing={toggleLyricsEditing}
           onSeekToLine={handleSeekToLine}
+          onSeekToChantEvent={handleSeekToChantEvent}
           onSelectEditLine={handleSelectEditLine}
           onUpdateChantText={handleUpdateChantText}
           onDeleteChantNote={handleDeleteChantNote}
           onAddChantNote={handleAddChantNote}
+          onSaveChantEvents={handleSaveChantEvents}
         />
       </div>
     </PageShell>
@@ -401,10 +435,11 @@ export function PlayerPage() {
 }
 
 function findActiveLine(lines: SongLyricLine[], currentTime: number) {
-  return (
-    lines.find((line) => currentTime >= line.start && currentTime <= line.end) ??
-    lines.find((line) => currentTime < line.start)
-  )
+  return lines.find((line) => currentTime >= line.start && currentTime <= line.end)
+}
+
+function findActiveChantEvent(events: SongChantEvent[], currentTime: number) {
+  return events.find((event) => currentTime >= event.start && currentTime <= event.end)
 }
 
 function applyEditedLineNotes(
@@ -436,6 +471,19 @@ function shiftLyrics(lines: SongLyricLine[], offset: number): SongLyricLine[] {
     const end = Math.max(start + 0.1, line.end + offset)
 
     return { ...line, start, end }
+  })
+}
+
+function shiftChantEvents(events: SongChantEvent[], offset: number): SongChantEvent[] {
+  if (offset === 0) {
+    return events
+  }
+
+  return events.map((event) => {
+    const start = Math.max(0, event.start + offset)
+    const end = Math.max(start + 0.1, event.end + offset)
+
+    return { ...event, start, end }
   })
 }
 

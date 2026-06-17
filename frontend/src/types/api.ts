@@ -76,12 +76,22 @@ export interface SongLyricLine {
   notes: Array<Record<string, unknown>>
 }
 
+export interface SongChantEvent {
+  id: string
+  start: number
+  end: number
+  text: string
+  label: string
+  romanizedText?: string | null
+}
+
 export interface SongResponse {
   id: string
   title: string
   artist: string
   audio: SongAudio
   lyrics: SongLyricLine[]
+  chantEvents: SongChantEvent[]
   lyricOffset: number
 }
 

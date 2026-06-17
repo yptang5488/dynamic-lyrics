@@ -1,6 +1,7 @@
 import type {
   JobStatusResponse,
   SongCatalogEntry,
+  SongChantEvent,
   LrcImportRequest,
   SongResponse,
   SourceDetailResponse,
@@ -143,6 +144,16 @@ export async function updateSongLyricNotes(
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ lyricNotes }),
+  })
+
+  return parseResponse<SongResponse>(response)
+}
+
+export async function updateSongChantEvents(songId: string, chantEvents: SongChantEvent[]) {
+  const response = await fetch(resolveUrl(`/api/songs/${songId}/chant-events`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chantEvents }),
   })
 
   return parseResponse<SongResponse>(response)

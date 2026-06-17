@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { formatTime } from '../lib/time'
-import type { SongLyricLine } from '../types/api'
+import type { SongChantEvent, SongLyricLine } from '../types/api'
 
 type ChantPlacement = 'inline' | 'insert-at' | 'replace-phrase'
 
@@ -26,6 +26,7 @@ interface ChantNote {
 type UpdateChantText = (line: SongLyricLine, noteIndex: number, text: string) => void
 type DeleteChantNote = (line: SongLyricLine, noteIndex: number) => void
 type AddChantNote = (line: SongLyricLine, note: Record<string, unknown>) => void
+type SaveChantEvents = (events: SongChantEvent[]) => void
 
 interface LyricSelection {
   lineId: string
@@ -52,9 +53,25 @@ interface PendingChant {
   text: string
 }
 
+interface PendingChantEvent {
+  position: 'intro' | 'outro'
+  start: string
+  end: string
+  text: string
+}
+
+interface EditingChantEvent {
+  id: string
+  start: string
+  end: string
+  text: string
+}
+
 interface LyricsPanelProps {
   lyrics: SongLyricLine[]
+  chantEvents?: SongChantEvent[]
   activeLineId?: string
+  activeChantEventId?: string
   selectedEditLineId?: string | null
   showTranslation: boolean
   hasTranslation: boolean
@@ -66,15 +83,19 @@ interface LyricsPanelProps {
   onToggleAutoScroll?: () => void
   onToggleEditing?: () => void
   onSeekToLine?: (line: SongLyricLine) => void
+  onSeekToChantEvent?: (event: SongChantEvent) => void
   onSelectEditLine?: (line: SongLyricLine) => void
   onUpdateChantText?: UpdateChantText
   onDeleteChantNote?: DeleteChantNote
   onAddChantNote?: AddChantNote
+  onSaveChantEvents?: SaveChantEvents
 }
 
 export function LyricsPanel({
   lyrics,
+  chantEvents = [],
   activeLineId,
+  activeChantEventId,
   selectedEditLineId,
   showTranslation,
   hasTranslation,
@@ -86,10 +107,12 @@ export function LyricsPanel({
   onToggleAutoScroll,
   onToggleEditing,
   onSeekToLine,
+  onSeekToChantEvent,
   onSelectEditLine,
   onUpdateChantText,
   onDeleteChantNote,
   onAddChantNote,
+  onSaveChantEvents,
 }: LyricsPanelProps) {
   const listRef = useRef<HTMLDivElement | null>(null)
   const cardRef = useRef<HTMLElement | null>(null)
@@ -100,6 +123,8 @@ export function LyricsPanel({
   const [lyricSelection, setLyricSelection] = useState<LyricSelection | null>(null)
   const [selectionPopover, setSelectionPopover] = useState<SelectionPopover | null>(null)
   const [pendingChant, setPendingChant] = useState<PendingChant | null>(null)
+  const [pendingChantEvent, setPendingChantEvent] = useState<PendingChantEvent | null>(null)
+  const [editingChantEvent, setEditingChantEvent] = useState<EditingChantEvent | null>(null)
 
   useEffect(() => {
     if (!autoScroll || !listRef.current || !activeRef.current) {
@@ -111,7 +136,7 @@ export function LyricsPanel({
     const nextTop = activeLine.offsetTop - list.clientHeight / 2 + activeLine.clientHeight / 2
 
     list.scrollTo({ top: Math.max(0, nextTop), behavior: 'smooth' })
-  }, [activeLineId, autoScroll])
+  }, [activeLineId, activeChantEventId, autoScroll])
 
   useEffect(() => {
     if (!isEditing) {
@@ -156,12 +181,15 @@ export function LyricsPanel({
       setLyricSelection(null)
       setSelectionPopover(null)
       setPendingChant(null)
+      setPendingChantEvent(null)
+      setEditingChantEvent(null)
     }
     onToggleEditing?.()
   }
 
   const selectedLine = lyricSelection ? lyrics.find((line) => line.id === lyricSelection.lineId) : null
   const canShowTranslation = showTranslation && hasTranslation
+  const timelineItems = buildTimelineItems(lyrics, chantEvents)
 
   return (
     <section ref={cardRef} className="lyrics-card">
@@ -203,7 +231,53 @@ export function LyricsPanel({
       </div>
 
       <div ref={listRef} className="lyrics-list">
-        {lyrics.map((line) => {
+        {isEditing && onSaveChantEvents ? renderChantEventEditor('intro', lyrics, chantEvents, pendingChantEvent, setPendingChantEvent, onSaveChantEvents) : null}
+        {timelineItems.map((item) => {
+          if (item.type === 'chant') {
+            const isActive = item.event.id === activeChantEventId
+
+            return (
+              <div
+                key={`chant-${item.event.id}`}
+                ref={isActive ? activeRef : null}
+                role="button"
+                tabIndex={0}
+                className={`lyric-line lyric-line--chant-event${isActive ? ' lyric-line--active' : ''}${isEditing ? ' lyric-line--editing' : ''}`}
+                onClick={() => {
+                  if (!isEditing) {
+                    onSeekToChantEvent?.(item.event)
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') {
+                    return
+                  }
+
+                  event.preventDefault()
+                  if (!isEditing) {
+                    onSeekToChantEvent?.(item.event)
+                  }
+                }}
+              >
+                {isEditing && onSaveChantEvents ? renderExistingChantEventEditor(item.event, chantEvents, editingChantEvent, setEditingChantEvent, onSaveChantEvents) : (
+                  <>
+                    <span className="lyric-line__time">
+                      {formatTime(item.event.start)} - {formatTime(item.event.end)}
+                    </span>
+                    <span className="lyric-line__text lyric-line__text--chant-event">
+                      <span className="badge badge--compact badge--ready">{item.event.label}</span>
+                      <span>{item.event.text}</span>
+                    </span>
+                    {showChantRomanization && item.event.romanizedText ? (
+                      <span className="lyric-line__translation">{item.event.romanizedText}</span>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            )
+          }
+
+          const line = item.line
           const isActive = line.id === activeLineId
           const isSelectedForEdit = line.id === selectedEditLineId
 
@@ -289,6 +363,7 @@ export function LyricsPanel({
             </div>
           )
         })}
+        {isEditing && onSaveChantEvents ? renderChantEventEditor('outro', lyrics, chantEvents, pendingChantEvent, setPendingChantEvent, onSaveChantEvents) : null}
       </div>
       {isEditing && selectedLine && lyricSelection && selectionPopover ? (
         <div
@@ -306,6 +381,214 @@ export function LyricsPanel({
       ) : null}
     </section>
   )
+}
+
+type TimelineItem =
+  | { type: 'lyric'; line: SongLyricLine }
+  | { type: 'chant'; event: SongChantEvent }
+
+function buildTimelineItems(lyrics: SongLyricLine[], chantEvents: SongChantEvent[]): TimelineItem[] {
+  return [
+    ...lyrics.map((line) => ({ type: 'lyric' as const, line })),
+    ...chantEvents.map((event) => ({ type: 'chant' as const, event })),
+  ].sort((left, right) => {
+    const leftStart = left.type === 'lyric' ? left.line.start : left.event.start
+    const rightStart = right.type === 'lyric' ? right.line.start : right.event.start
+
+    return leftStart - rightStart
+  })
+}
+
+function renderChantEventEditor(
+  position: 'intro' | 'outro',
+  lyrics: SongLyricLine[],
+  chantEvents: SongChantEvent[],
+  pendingChantEvent: PendingChantEvent | null,
+  setPendingChantEvent: (value: PendingChantEvent | null) => void,
+  onSaveChantEvents: SaveChantEvents,
+) {
+  const isOpen = pendingChantEvent?.position === position
+  const defaults = getChantEventDefaults(position, lyrics)
+
+  if (!isOpen) {
+    return (
+      <button
+        type="button"
+        className="chant-event-add"
+        onClick={() => setPendingChantEvent({ position, start: defaults.start, end: defaults.end, text: '' })}
+      >
+        + Add {position} chant
+      </button>
+    )
+  }
+
+  const start = parseDraftTime(pendingChantEvent.start)
+  const end = parseDraftTime(pendingChantEvent.end)
+  const canSave = Number.isFinite(start) && Number.isFinite(end) && end > start && pendingChantEvent.text.trim().length > 0
+
+  return (
+    <div className="chant-event-editor">
+      <input
+        className="field"
+        value={pendingChantEvent.start}
+        placeholder="00:00"
+        aria-label={`${position} chant start`}
+        onChange={(event) => setPendingChantEvent({ ...pendingChantEvent, start: event.target.value })}
+      />
+      <input
+        className="field"
+        value={pendingChantEvent.end}
+        placeholder="00:05"
+        aria-label={`${position} chant end`}
+        onChange={(event) => setPendingChantEvent({ ...pendingChantEvent, end: event.target.value })}
+      />
+      <input
+        className="field"
+        value={pendingChantEvent.text}
+        placeholder="Chant text"
+        aria-label={`${position} chant text`}
+        onChange={(event) => setPendingChantEvent({ ...pendingChantEvent, text: event.target.value })}
+      />
+      <button
+        type="button"
+        className="chip-button chip-button--compact"
+        disabled={!canSave}
+        onClick={() => {
+          if (!canSave) {
+            return
+          }
+
+          onSaveChantEvents([...chantEvents, {
+            id: `chant_${Date.now().toString(36)}`,
+            start,
+            end,
+            text: pendingChantEvent.text.trim(),
+            label: 'chant',
+          }])
+          setPendingChantEvent(null)
+        }}
+      >
+        Save
+      </button>
+      <button type="button" className="ghost-button player-calibration__small-button" onClick={() => setPendingChantEvent(null)}>
+        Cancel
+      </button>
+    </div>
+  )
+}
+
+function renderExistingChantEventEditor(
+  event: SongChantEvent,
+  chantEvents: SongChantEvent[],
+  editingChantEvent: EditingChantEvent | null,
+  setEditingChantEvent: (value: EditingChantEvent | null) => void,
+  onSaveChantEvents: SaveChantEvents,
+) {
+  const draft = editingChantEvent?.id === event.id ? editingChantEvent : {
+    id: event.id,
+    start: formatDraftSeconds(event.start),
+    end: formatDraftSeconds(event.end),
+    text: event.text,
+  }
+  const start = parseDraftTime(draft.start)
+  const end = parseDraftTime(draft.end)
+  const canSave = Number.isFinite(start) && Number.isFinite(end) && end > start && draft.text.trim().length > 0
+  const commitDraft = () => {
+    if (!canSave) {
+      return
+    }
+
+    onSaveChantEvents(chantEvents.map((item) => (
+      item.id === event.id ? { ...item, start, end, text: draft.text.trim() } : item
+    )))
+    setEditingChantEvent(null)
+  }
+
+  return (
+    <div
+      className="chant-event-editor chant-event-editor--existing"
+      onClick={(clickEvent) => clickEvent.stopPropagation()}
+      onBlur={(blurEvent) => {
+        if (!(blurEvent.relatedTarget instanceof Node) || !blurEvent.currentTarget.contains(blurEvent.relatedTarget)) {
+          commitDraft()
+        }
+      }}
+    >
+      <input
+        className="field"
+        value={draft.start}
+        placeholder="00:00"
+        aria-label="Chant start"
+        onFocus={() => setEditingChantEvent(draft)}
+        onChange={(changeEvent) => setEditingChantEvent({ ...draft, start: changeEvent.target.value })}
+      />
+      <input
+        className="field"
+        value={draft.end}
+        placeholder="00:05"
+        aria-label="Chant end"
+        onFocus={() => setEditingChantEvent(draft)}
+        onChange={(changeEvent) => setEditingChantEvent({ ...draft, end: changeEvent.target.value })}
+      />
+      <input
+        className="field"
+        value={draft.text}
+        aria-label="Chant text"
+        onFocus={() => setEditingChantEvent(draft)}
+        onChange={(changeEvent) => setEditingChantEvent({ ...draft, text: changeEvent.target.value })}
+      />
+      <button
+        type="button"
+        className="ghost-button player-calibration__small-button chant-event-delete"
+        onClick={() => {
+          if (window.confirm(`Remove ${event.text} from the chant timeline?`)) {
+            onSaveChantEvents(chantEvents.filter((item) => item.id !== event.id))
+            setEditingChantEvent(null)
+          }
+        }}
+      >
+        Remove
+      </button>
+    </div>
+  )
+}
+
+function getChantEventDefaults(position: 'intro' | 'outro', lyrics: SongLyricLine[]) {
+  const firstLine = lyrics[0]
+  const lastLine = lyrics[lyrics.length - 1]
+
+  if (position === 'intro') {
+    const end = Math.max(0, firstLine?.start ?? 5)
+    return { start: '0', end: formatDraftSeconds(end || 5) }
+  }
+
+  const start = lastLine?.end ?? 0
+  return { start: formatDraftSeconds(start), end: formatDraftSeconds(start + 5) }
+}
+
+function formatDraftSeconds(value: number) {
+  return formatTime(value)
+}
+
+function parseDraftTime(value: string) {
+  const parts = value.trim().split(':')
+
+  if (parts.length === 1) {
+    const seconds = Number(parts[0])
+    return Number.isFinite(seconds) ? Math.round(seconds) : Number.NaN
+  }
+
+  if (parts.length !== 2) {
+    return Number.NaN
+  }
+
+  const minutes = Number(parts[0])
+  const seconds = Number(parts[1])
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || seconds < 0 || seconds >= 60) {
+    return Number.NaN
+  }
+
+  return Math.round(minutes) * 60 + Math.round(seconds)
 }
 
 function renderLyricText(

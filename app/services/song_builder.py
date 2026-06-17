@@ -26,6 +26,7 @@ def build_song(source: dict, aligned_lyrics: list[dict[str, object]]) -> dict:
             "duration": source.get("duration"),
         },
         "lyricOffset": 0,
+        "chantEvents": [],
         "lyrics": normalize_lyric_notes(aligned_lyrics),
     }
 

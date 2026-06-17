@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from app.services.spotdl_import import SpotdlImportResult
 from app.db.session import insert_record, json_dumps, utc_now
 
@@ -169,6 +171,102 @@ def test_update_song_lyric_notes_persists(client) -> None:
 
     assert response.json()["lyrics"][0]["notes"] == [note]
     assert client.get("/api/songs/song_notes_case").json()["lyrics"][0]["notes"] == [note]
+
+
+def test_song_chant_events_are_returned_and_count_as_notes(client) -> None:
+    timestamp = utc_now()
+    chant_event = {
+        "id": "c1",
+        "start": 5,
+        "end": 8,
+        "text": "intro chant",
+        "label": "chant",
+    }
+    song_payload = {
+        "id": "song_chant_event_case",
+        "title": "Chant Event Case",
+        "artist": "Tester",
+        "audio": {"sourceId": "src_chant_event_case", "playbackUrl": "/media/test.mp3"},
+        "lyrics": [],
+        "chantEvents": [chant_event],
+    }
+    insert_record(
+        "sources",
+        {
+            "id": "src_chant_event_case",
+            "type": "upload",
+            "status": "ready",
+            "title": "Chant Event Case",
+            "artist": "Tester",
+            "playback_url": "/media/test.mp3",
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+    insert_record(
+        "songs",
+        {
+            "id": "song_chant_event_case",
+            "source_id": "src_chant_event_case",
+            "title": "Chant Event Case",
+            "artist": "Tester",
+            "lyrics_json": json_dumps(song_payload),
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+
+    response = client.get("/api/songs/song_chant_event_case")
+    response.raise_for_status()
+
+    assert response.json()["chantEvents"] == [{**chant_event, "romanizedText": None}]
+    catalog_entry = next(
+        song for song in client.get("/api/songs").json() if song["id"] == "song_chant_event_case"
+    )
+    assert catalog_entry["hasNotes"] is True
+
+
+def test_update_song_chant_events_persists_sorted_events(client, test_settings) -> None:
+    timestamp = utc_now()
+    song_payload = {
+        "id": "song_chant_events_update_case",
+        "title": "Chant Events Update Case",
+        "artist": "Tester",
+        "audio": {"sourceId": "src_chant_events_update_case", "playbackUrl": "/media/test.mp3"},
+        "lyrics": [],
+    }
+    insert_record(
+        "songs",
+        {
+            "id": "song_chant_events_update_case",
+            "source_id": "src_chant_events_update_case",
+            "title": "Chant Events Update Case",
+            "artist": "Tester",
+            "lyrics_json": json_dumps(song_payload),
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+
+    response = client.patch(
+        "/api/songs/song_chant_events_update_case/chant-events",
+        json={
+            "chantEvents": [
+                {"id": "outro", "start": 20, "end": 25, "text": "outro", "label": "chant"},
+                {"id": "intro", "start": 0, "end": 5, "text": "intro", "label": "chant"},
+            ]
+        },
+    )
+    response.raise_for_status()
+
+    assert [event["id"] for event in response.json()["chantEvents"]] == ["intro", "outro"]
+    assert [event["id"] for event in client.get("/api/songs/song_chant_events_update_case").json()["chantEvents"]] == ["intro", "outro"]
+    export_payload = json.loads(
+        (test_settings.export_dir / "song_chant_events_update_case.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert [event["id"] for event in export_payload["chantEvents"]] == ["intro", "outro"]
 
 
 def test_update_song_lyric_notes_normalizes_chant_romanization(client) -> None:

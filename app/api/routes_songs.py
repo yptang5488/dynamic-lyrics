@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+
+import app.config as config
 from fastapi import APIRouter, HTTPException, status
 from pydantic import ValidationError
 
@@ -14,6 +17,7 @@ from app.db.session import (
 )
 from app.models.schemas import (
     SongCatalogEntry,
+    SongChantEventsUpdateRequest,
     SongLyricNotesUpdateRequest,
     SongLyricOffsetUpdateRequest,
     SongMetadataUpdateRequest,
@@ -40,7 +44,8 @@ def list_songs() -> list[SongCatalogEntry]:
                 artist=song["artist"],
                 has_lyrics=len(payload.lyrics) > 0,
                 has_translation=any(line.translation for line in payload.lyrics),
-                has_notes=any(len(line.notes) > 0 for line in payload.lyrics),
+                has_notes=bool(payload.chant_events)
+                or any(len(line.notes) > 0 for line in payload.lyrics),
                 player_path=f"/player/{song['id']}",
             )
         )
@@ -78,15 +83,10 @@ def update_song_metadata(song_id: str, request: SongMetadataUpdateRequest) -> So
     next_payload = payload.model_dump(by_alias=True)
     next_payload["title"] = title
     next_payload["artist"] = artist
-    update_record(
-        "songs",
+    persist_song_payload(
         song_id,
-        {
-            "title": title,
-            "artist": artist,
-            "lyrics_json": json_dumps(next_payload),
-            "updated_at": utc_now(),
-        },
+        next_payload,
+        {"title": title, "artist": artist},
     )
     return SongResponse.model_validate(next_payload)
 
@@ -104,14 +104,7 @@ def update_song_lyric_offset(
     payload = SongResponse.model_validate(json_loads(song["lyrics_json"], {}))
     next_payload = payload.model_dump(by_alias=True)
     next_payload["lyricOffset"] = round(request.lyric_offset, 1)
-    update_record(
-        "songs",
-        song_id,
-        {
-            "lyrics_json": json_dumps(next_payload),
-            "updated_at": utc_now(),
-        },
-    )
+    persist_song_payload(song_id, next_payload)
     return SongResponse.model_validate(next_payload)
 
 
@@ -140,15 +133,56 @@ def update_song_lyric_notes(
         if line["id"] in line_updates:
             line["notes"] = normalize_chant_notes(line_updates[line["id"]])
 
-    update_record(
-        "songs",
-        song_id,
-        {
-            "lyrics_json": json_dumps(next_payload),
-            "updated_at": utc_now(),
-        },
-    )
+    persist_song_payload(song_id, next_payload)
     return SongResponse.model_validate(next_payload)
+
+
+@router.patch("/{song_id}/chant-events", response_model=SongResponse)
+def update_song_chant_events(
+    song_id: str, request: SongChantEventsUpdateRequest
+) -> SongResponse:
+    song = fetch_one("songs", song_id)
+    if not song:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="song not found"
+        )
+
+    for event in request.chant_events:
+        if event.end <= event.start:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="chant event end must be after start",
+            )
+        if not event.text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="chant event text is required",
+            )
+
+    payload = SongResponse.model_validate(json_loads(song["lyrics_json"], {}))
+    next_payload = payload.model_dump(by_alias=True)
+    next_payload["chantEvents"] = [
+        event.model_dump(by_alias=True)
+        for event in sorted(request.chant_events, key=lambda item: item.start)
+    ]
+    persist_song_payload(song_id, next_payload)
+    return SongResponse.model_validate(next_payload)
+
+
+def persist_song_payload(
+    song_id: str,
+    payload: dict,
+    record_updates: dict | None = None,
+) -> None:
+    updates = dict(record_updates or {})
+    updates.update({"lyrics_json": json_dumps(payload), "updated_at": utc_now()})
+    update_record("songs", song_id, updates)
+
+    export_path = config.settings.export_dir / f"{song_id}.json"
+    export_path.parent.mkdir(parents=True, exist_ok=True)
+    export_path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8"
+    )
 
 
 @router.delete("/{song_id}", status_code=status.HTTP_204_NO_CONTENT)

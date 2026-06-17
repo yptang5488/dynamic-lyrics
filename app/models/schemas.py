@@ -134,12 +134,24 @@ class LyricLine(BaseModel):
     notes: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class ChantEvent(BaseModel):
+    id: str
+    start: float
+    end: float
+    text: str
+    label: str = "chant"
+    romanized_text: str | None = Field(default=None, alias="romanizedText")
+
+    model_config = {"populate_by_name": True}
+
+
 class SongResponse(BaseModel):
     id: str
     title: str
     artist: str
     audio: AudioPayload
     lyrics: list[LyricLine]
+    chant_events: list[ChantEvent] = Field(default_factory=list, alias="chantEvents")
     lyric_offset: float = Field(default=0, alias="lyricOffset")
 
     model_config = {"populate_by_name": True}
@@ -165,6 +177,12 @@ class SongLyricNotesUpdate(BaseModel):
 
 class SongLyricNotesUpdateRequest(BaseModel):
     lyric_notes: list[SongLyricNotesUpdate] = Field(alias="lyricNotes")
+
+    model_config = {"populate_by_name": True}
+
+
+class SongChantEventsUpdateRequest(BaseModel):
+    chant_events: list[ChantEvent] = Field(alias="chantEvents")
 
     model_config = {"populate_by_name": True}
 
