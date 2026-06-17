@@ -768,15 +768,12 @@ button {
 
 .lyric-line__text {
   display: block;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 700;
 }
 
 .lyric-line__text--chant-event {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
+  color: #ba3c13;
 }
 
 .lyric-line--editing .lyric-line__text {
@@ -784,10 +781,7 @@ button {
 }
 
 .chant-anchor {
-  padding: 6px 9px;
-  border-radius: 8px;
-  background: rgba(214, 138, 58, 0.18);
-  color: #9b551b;
+  color: #ba3c13;
 }
 
 .chant-annotated {
@@ -801,7 +795,7 @@ button {
   color: rgba(18, 48, 56, 0.48);
   text-decoration: line-through;
   text-decoration-thickness: 2px;
-  text-decoration-color: #c05c8d;
+  text-decoration-color: #ba3c13;
 }
 
 .chant-anchor-wrap {
@@ -814,18 +808,12 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin-left: 6px;
-  padding: 3px 8px;
-  border-radius: 999px;
+  margin-left: 3px;
+  color: #ba3c13;
   font-size: 1em;
   font-weight: 800;
   letter-spacing: 0.02em;
   vertical-align: 0.12em;
-}
-
-.chant-pill__text {
-  padding: 3px 8px;
-  border-radius: 9px;
 }
 
 .chant-pill--chant,
@@ -845,7 +833,7 @@ button {
 
 .chant-romanization--inline {
   margin-top: 2px;
-  color: #9b551b;
+  color: #ba3c13;
 }
 
 .chant-pill-wrap {
@@ -862,10 +850,10 @@ button {
   width: 18px;
   height: 18px;
   padding: 0;
-  border: 1px solid rgba(192, 92, 141, 0.3);
+  border: 1px solid rgba(186, 60, 19, 0.3);
   border-radius: 999px;
   background: #fff;
-  color: #9c376a;
+  color: #ba3c13;
   font-size: 0.9rem;
   font-weight: 900;
   line-height: 1;
@@ -887,24 +875,6 @@ button {
 
 .chant-pill--editable:hover {
   transform: translateY(-1px);
-}
-
-.chant-pill--chant {
-  color: #9c376a;
-}
-
-.chant-pill--chant .chant-pill__text {
-  background: rgba(192, 92, 141, 0.14);
-  border: 1px solid rgba(192, 92, 141, 0.18);
-}
-
-.chant-pill--sing-along {
-  color: var(--accent);
-}
-
-.chant-pill--sing-along .chant-pill__text {
-  background: rgba(15, 122, 116, 0.12);
-  border: 1px solid rgba(15, 122, 116, 0.16);
 }
 
 .lyric-line__translation {
@@ -941,7 +911,7 @@ button {
 }
 
 .lyric-line--active .lyric-line__text {
-  font-size: 1.24rem;
+  font-size: 1.36rem;
 }
 
 .lyric-line__edit-hint {

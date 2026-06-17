@@ -265,8 +265,7 @@ export function LyricsPanel({
                       {formatTime(item.event.start)} - {formatTime(item.event.end)}
                     </span>
                     <span className="lyric-line__text lyric-line__text--chant-event">
-                      <span className="badge badge--compact badge--ready">{item.event.label}</span>
-                      <span>{item.event.text}</span>
+                      <span>{formatChantDisplayText(item.event.text)}</span>
                     </span>
                     {showChantRomanization && item.event.romanizedText ? (
                       <span className="lyric-line__translation">{item.event.romanizedText}</span>
@@ -1083,7 +1082,7 @@ function renderEditableChantText(
           setEditingChantKey(chantKey)
         }}
       >
-        <span className="chant-pill__text">{note.text}</span>
+        <span className="chant-pill__text">{formatChantDisplayText(note.text)}</span>
         {showChantRomanization && note.romanizedText ? (
           <span className="chant-romanization">{note.romanizedText}</span>
         ) : null}
@@ -1106,6 +1105,10 @@ function renderEditableChantText(
       ) : null}
     </span>
   )
+}
+
+function formatChantDisplayText(text: string) {
+  return `(${text})`
 }
 
 function stopChantDeletePointerEvent(event: MouseEvent<HTMLButtonElement>) {
