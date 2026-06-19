@@ -45,6 +45,38 @@ npm run dev
 
 The frontend runs through Vite and talks to the local backend during development.
 
+## Build Static Practice Site
+
+Use this when you want to export a shareable, backend-free practice version for friends.
+
+```bash
+cd frontend
+npm run build:practice
+```
+
+The export is written to `dist/practice-site`. It uses the existing React/Vite frontend styling, but runs in static practice mode:
+
+- reads prepared song JSON from `data/export`
+- copies available audio files into the static export
+- skips songs whose audio files are missing
+- disables maintainer-only import/delete routes
+- stores each friend's calibration and chant edits in their browser `localStorage`
+
+To export only specific songs, pass comma-separated song IDs:
+
+```bash
+cd frontend
+npm run build:practice -- --songs=song_src_aaf2a49c_da3ed6,song_src_4671e574_dd8233
+```
+
+Preview the exported site locally from the repository root:
+
+```bash
+python3 -m http.server 8080 --directory dist/practice-site
+```
+
+Then open `http://localhost:8080`. Avoid opening `index.html` directly because browsers may block the static JSON files under `practice-data`.
+
 ## Optional Local Tools
 
 - `ffmpeg` / `ffprobe` for audio normalization and duration detection

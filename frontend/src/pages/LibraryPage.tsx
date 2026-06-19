@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { PageShell } from '../components/PageShell'
 import { deleteSong, listSongs } from '../lib/api'
+import { IS_PRACTICE_MODE } from '../lib/practiceMode'
 import type { SongCatalogEntry } from '../types/api'
 
 export function LibraryPage() {
@@ -25,8 +26,8 @@ export function LibraryPage() {
       subtitle="Pick a maintainer-prepared track and enjoy synced lyrics player!"
       aside={(
         <div className="library-header-actions">
-          <Link className="secondary-button" to="/import">Maintainer import</Link>
-          {songsQuery.isSuccess && songsQuery.data.length > 0 ? (
+          {IS_PRACTICE_MODE ? null : <Link className="secondary-button" to="/import">Maintainer import</Link>}
+          {!IS_PRACTICE_MODE && songsQuery.isSuccess && songsQuery.data.length > 0 ? (
             <button
               type="button"
               className={`chip-button chip-button--compact${isEditingSongs ? ' is-active' : ''}`}
@@ -49,7 +50,7 @@ export function LibraryPage() {
 
         {songsQuery.isSuccess && songsQuery.data.length === 0 ? (
           <div className="empty-state">
-            No prepared songs are available yet. Use the maintainer import flow to create a player-ready song first.
+            {IS_PRACTICE_MODE ? 'No practice songs are available in this static export.' : 'No prepared songs are available yet. Use the maintainer import flow to create a player-ready song first.'}
           </div>
         ) : null}
 

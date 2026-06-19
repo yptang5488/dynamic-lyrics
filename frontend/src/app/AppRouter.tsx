@@ -5,8 +5,19 @@ import { LibraryPage } from '../pages/LibraryPage'
 import { PlayerPage } from '../pages/PlayerPage'
 import { SpotifyLrcPreviewPage } from '../pages/SpotifyLrcPreviewPage'
 import { YoutubeLrcPreviewPage } from '../pages/YoutubeLrcPreviewPage'
+import { IS_PRACTICE_MODE } from '../lib/practiceMode'
 
 export function AppRouter() {
+  if (IS_PRACTICE_MODE) {
+    return (
+      <Routes>
+        <Route path="/" element={<LibraryPage />} />
+        <Route path="/player/:songId" element={<PlayerPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    )
+  }
+
   return (
     <Routes>
       <Route path="/" element={<LibraryPage />} />

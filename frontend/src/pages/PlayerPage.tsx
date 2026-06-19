@@ -5,6 +5,7 @@ import { LyricsPanel } from '../components/LyricsPanel'
 import { PageShell } from '../components/PageShell'
 import { PlayerControls } from '../components/PlayerControls'
 import { getSong, resolveMediaUrl, updateSongChantEvents, updateSongLyricNotes, updateSongLyricOffset, updateSongMetadata } from '../lib/api'
+import { IS_PRACTICE_MODE } from '../lib/practiceMode'
 import type { SongChantEvent, SongLyricLine } from '../types/api'
 
 const EMPTY_LYRICS: SongLyricLine[] = []
@@ -323,7 +324,7 @@ export function PlayerPage() {
             artist={song.artist}
             actions={(
               <div className="player-toolbar-actions">
-                <div className="player-calibration">
+                {!IS_PRACTICE_MODE ? <div className="player-calibration">
                   <button
                     type="button"
                     className="secondary-button player-calibration__toggle"
@@ -358,7 +359,7 @@ export function PlayerPage() {
                       ) : null}
                     </div>
                   ) : null}
-                </div>
+                </div> : null}
                 <div className="player-calibration">
                   <button
                     type="button"

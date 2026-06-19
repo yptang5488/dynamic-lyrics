@@ -11,9 +11,28 @@ import type {
   SyncedLrcSearchResponse,
   YoutubeImportResponse,
 } from '../types/api'
+import { IS_PRACTICE_MODE } from './practiceMode'
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''
+const PRACTICE_SETTINGS_KEY = 'dynamicLyricsPracticeSettings'
+
+interface PracticeManifest {
+  songs: Array<SongCatalogEntry & { songUrl: string; audioUrl: string }>
+}
+
+interface PracticeSongSettings {
+  lyricOffset?: number
+  title?: string
+  artist?: string
+  lyricNotes?: Record<string, Array<Record<string, unknown>>>
+  chantEvents?: SongChantEvent[]
+}
+
+interface PracticeSettings {
+  version: 1
+  songs: Record<string, PracticeSongSettings>
+}
 
 function resolveUrl(path: string) {
   return `${API_BASE_URL}${path}`
@@ -97,16 +116,45 @@ export async function getJob(jobId: string) {
 }
 
 export async function getSong(songId: string) {
+  if (IS_PRACTICE_MODE) {
+    const manifest = await getPracticeManifest()
+    const entry = manifest.songs.find((song) => song.id === songId)
+    if (!entry) {
+      throw new Error('Song not found in this practice export.')
+    }
+
+    const response = await fetch(entry.songUrl)
+    const song = await parseResponse<SongResponse>(response)
+    return applyPracticeSettings(song)
+  }
+
   const response = await fetch(resolveUrl(`/api/songs/${songId}`))
   return parseResponse<SongResponse>(response)
 }
 
 export async function listSongs() {
+  if (IS_PRACTICE_MODE) {
+    const manifest = await getPracticeManifest()
+    return manifest.songs.map((song) => ({
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      hasLyrics: song.hasLyrics,
+      hasTranslation: song.hasTranslation,
+      hasNotes: song.hasNotes,
+      playerPath: song.playerPath,
+    }))
+  }
+
   const response = await fetch(resolveUrl('/api/songs'))
   return parseResponse<SongCatalogEntry[]>(response)
 }
 
 export async function deleteSong(songId: string) {
+  if (IS_PRACTICE_MODE) {
+    throw new Error('Static practice exports cannot remove songs.')
+  }
+
   const response = await fetch(resolveUrl(`/api/songs/${songId}`), {
     method: 'DELETE',
   })
@@ -117,6 +165,11 @@ export async function deleteSong(songId: string) {
 }
 
 export async function updateSongLyricOffset(songId: string, lyricOffset: number) {
+  if (IS_PRACTICE_MODE) {
+    updatePracticeSongSettings(songId, { lyricOffset })
+    return getSong(songId)
+  }
+
   const response = await fetch(resolveUrl(`/api/songs/${songId}/lyric-offset`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -127,6 +180,11 @@ export async function updateSongLyricOffset(songId: string, lyricOffset: number)
 }
 
 export async function updateSongMetadata(songId: string, title: string, artist: string) {
+  if (IS_PRACTICE_MODE) {
+    updatePracticeSongSettings(songId, { title, artist })
+    return getSong(songId)
+  }
+
   const response = await fetch(resolveUrl(`/api/songs/${songId}/metadata`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -140,6 +198,16 @@ export async function updateSongLyricNotes(
   songId: string,
   lyricNotes: Array<{ lineId: string; notes: Array<Record<string, unknown>> }>,
 ) {
+  if (IS_PRACTICE_MODE) {
+    const settings = getPracticeSongSettings(songId)
+    const nextLyricNotes = { ...(settings.lyricNotes ?? {}) }
+    for (const item of lyricNotes) {
+      nextLyricNotes[item.lineId] = item.notes
+    }
+    updatePracticeSongSettings(songId, { lyricNotes: nextLyricNotes })
+    return getSong(songId)
+  }
+
   const response = await fetch(resolveUrl(`/api/songs/${songId}/lyric-notes`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -150,6 +218,11 @@ export async function updateSongLyricNotes(
 }
 
 export async function updateSongChantEvents(songId: string, chantEvents: SongChantEvent[]) {
+  if (IS_PRACTICE_MODE) {
+    updatePracticeSongSettings(songId, { chantEvents })
+    return getSong(songId)
+  }
+
   const response = await fetch(resolveUrl(`/api/songs/${songId}/chant-events`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -167,4 +240,49 @@ export function resolveMediaUrl(path: string) {
     return path
   }
   return resolveUrl(path)
+}
+
+async function getPracticeManifest() {
+  const response = await fetch('./practice-data/manifest.json')
+  return parseResponse<PracticeManifest>(response)
+}
+
+function applyPracticeSettings(song: SongResponse): SongResponse {
+  const settings = getPracticeSongSettings(song.id)
+  const lyricNotes = settings.lyricNotes ?? {}
+  const lyrics = Object.keys(lyricNotes).length
+    ? song.lyrics.map((line) => lyricNotes[line.id] ? { ...line, notes: lyricNotes[line.id] } : line)
+    : song.lyrics
+
+  return {
+    ...song,
+    title: settings.title ?? song.title,
+    artist: settings.artist ?? song.artist,
+    lyrics,
+    chantEvents: settings.chantEvents ?? song.chantEvents,
+    lyricOffset: settings.lyricOffset ?? song.lyricOffset ?? 0,
+  }
+}
+
+function getPracticeSongSettings(songId: string) {
+  return getPracticeSettings().songs[songId] ?? {}
+}
+
+function updatePracticeSongSettings(songId: string, patch: PracticeSongSettings) {
+  const settings = getPracticeSettings()
+  settings.songs[songId] = { ...(settings.songs[songId] ?? {}), ...patch }
+  localStorage.setItem(PRACTICE_SETTINGS_KEY, JSON.stringify(settings))
+}
+
+function getPracticeSettings(): PracticeSettings {
+  try {
+    const settings = JSON.parse(localStorage.getItem(PRACTICE_SETTINGS_KEY) ?? '') as PracticeSettings
+    if (settings?.version === 1 && settings.songs) {
+      return settings
+    }
+  } catch {
+    // Ignore broken local practice data and start fresh.
+  }
+
+  return { version: 1, songs: {} }
 }
