@@ -644,7 +644,7 @@ function renderLyricText(
 
     const matchedText = line.text.slice(note.anchor.charStart, note.anchor.charEnd)
     parts.push(
-      <Fragment key={`${note.anchor.charStart}-${note.anchor.charEnd}-${note.text}`}>
+      <Fragment key={`${note.anchor.charStart}-${note.anchor.charEnd}-${noteIndex}`}>
         {note.placement === 'insert-at' ? null : note.placement === 'inline' && isEditing ? (
           <span className="chant-anchor-wrap">
             <span className="chant-annotated">
