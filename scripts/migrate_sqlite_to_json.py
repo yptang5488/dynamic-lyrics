@@ -88,7 +88,7 @@ def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     temp_path = path.with_suffix(f"{path.suffix}.tmp")
     temp_path.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=True),
+        json.dumps(payload, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
     temp_path.replace(path)

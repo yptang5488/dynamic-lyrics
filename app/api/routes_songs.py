@@ -182,7 +182,7 @@ def persist_song_payload(
     export_path = config.settings.export_dir / f"{song_id}.json"
     export_path.parent.mkdir(parents=True, exist_ok=True)
     export_path.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8"
+        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
 

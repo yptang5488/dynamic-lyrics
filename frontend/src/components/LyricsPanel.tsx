@@ -441,7 +441,7 @@ function renderChantEventEditor(
         aria-label={`${position} chant end`}
         onChange={(event) => setPendingChantEvent({ ...pendingChantEvent, end: event.target.value })}
       />
-      <input
+      <textarea
         className="field"
         value={pendingChantEvent.text}
         placeholder="Chant text"
@@ -529,7 +529,7 @@ function renderExistingChantEventEditor(
         onFocus={() => setEditingChantEvent(draft)}
         onChange={(changeEvent) => setEditingChantEvent({ ...draft, end: changeEvent.target.value })}
       />
-      <input
+      <textarea
         className="field"
         value={draft.text}
         aria-label="Chant text"
@@ -1050,14 +1050,14 @@ function renderEditableChantText(
         className={`chant-edit-field${isInline ? ' chant-edit-field--inline' : ''}`}
         onClick={(event) => event.stopPropagation()}
       >
-        <input
+        <textarea
           className="field"
           value={note.text}
           autoFocus
           onChange={(event) => onUpdateChantText?.(line, noteIndex, event.target.value)}
           onBlur={finishEditing}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === 'Escape') {
+            if (event.key === 'Escape') {
               event.currentTarget.blur()
             }
           }}

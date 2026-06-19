@@ -816,6 +816,11 @@ button {
   vertical-align: 0.12em;
 }
 
+.chant-pill__text,
+.lyric-line__text--chant-event {
+  white-space: pre-line;
+}
+
 .chant-pill--chant,
 .chant-pill--sing-along {
   padding: 0;

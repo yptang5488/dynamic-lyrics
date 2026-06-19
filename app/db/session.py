@@ -73,7 +73,7 @@ def fetch_ready_song_rows() -> list[dict[str, Any]]:
 
 
 def json_dumps(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=True)
+    return json.dumps(value, ensure_ascii=False)
 
 
 def json_loads(value: str | None, default: Any) -> Any:
@@ -156,7 +156,7 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_suffix(f"{path.suffix}.tmp")
     temp_path.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=True),
+        json.dumps(payload, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
     temp_path.replace(path)

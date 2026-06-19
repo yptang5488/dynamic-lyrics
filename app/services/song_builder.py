@@ -31,7 +31,7 @@ def build_song(source: dict, aligned_lyrics: list[dict[str, object]]) -> dict:
     }
 
     export_path = settings.export_dir / f"{song_id}.json"
-    export_path.write_text(json.dumps(song_payload, indent=2, ensure_ascii=True))
+    export_path.write_text(json.dumps(song_payload, indent=2, ensure_ascii=False))
 
     timestamp = utc_now()
     insert_record(
