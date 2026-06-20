@@ -11,8 +11,6 @@ import type { SongChantEvent, SongLyricLine } from '../types/api'
 
 const EMPTY_LYRICS: SongLyricLine[] = []
 const EMPTY_CHANT_EVENTS: SongChantEvent[] = []
-const OFFSET_RANGE_SECONDS = 10
-
 export function PlayerPage() {
   const { songId = '' } = useParams()
   const queryClient = useQueryClient()
@@ -177,9 +175,6 @@ export function PlayerPage() {
   const hasTranslation = originalLyrics.some((line) => Boolean(line.translation?.trim()))
   const activeLine = useMemo(() => findActiveLine(adjustedLyrics, currentTime), [adjustedLyrics, currentTime])
   const activeChantEvent = useMemo(() => activeLine ? undefined : findActiveChantEvent(adjustedChantEvents, currentTime), [activeLine, adjustedChantEvents, currentTime])
-  const offsetRangeStart = -OFFSET_RANGE_SECONDS
-  const offsetRangeEnd = OFFSET_RANGE_SECONDS
-
   function togglePlay() {
     const audio = audioRef.current
     if (!audio) {
@@ -230,7 +225,7 @@ export function PlayerPage() {
   }
 
   function applyDraftOffset(value: number) {
-    setDraftTimingOffset(roundOffset(clampOffset(value, offsetRangeStart, offsetRangeEnd)))
+    setDraftTimingOffset(roundOffset(value))
   }
 
   function handleNudgeTiming(delta: number) {
@@ -561,14 +556,6 @@ function roundOffset(value: number) {
 
 function buildOffsetKey(songId: string, lyricOffset: number) {
   return `${songId}:${roundOffset(lyricOffset)}`
-}
-
-function clampOffset(value: number, minimum: number, maximum: number) {
-  if (!Number.isFinite(value)) {
-    return 0
-  }
-
-  return Math.min(Math.max(value, minimum), maximum)
 }
 
 function isValidTrimDraft(value: string) {
