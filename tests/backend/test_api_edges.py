@@ -71,6 +71,66 @@ def test_update_song_lyric_offset_persists(client) -> None:
     assert client.get("/api/songs/song_offset_case").json()["lyricOffset"] == 1.2
 
 
+def test_shift_song_timing_persists_from_line_onward(client, test_settings) -> None:
+    timestamp = utc_now()
+    song_payload = {
+        "id": "song_shift_case",
+        "title": "Shift Case",
+        "artist": "Tester",
+        "audio": {"sourceId": "src_shift_case", "playbackUrl": "/media/test.mp3"},
+        "lyrics": [
+            {
+                "id": "l1",
+                "start": 1,
+                "end": 2,
+                "text": "before",
+                "translation": None,
+                "confidence": 0.9,
+                "segments": [],
+                "notes": [],
+            },
+            {
+                "id": "l2",
+                "start": 3,
+                "end": 4,
+                "text": "shift me",
+                "translation": None,
+                "confidence": 0.9,
+                "segments": [{"start": 3.1, "end": 3.4, "text": "shift"}],
+                "notes": [],
+            },
+        ],
+    }
+    insert_record(
+        "songs",
+        {
+            "id": "song_shift_case",
+            "source_id": "src_shift_case",
+            "title": "Shift Case",
+            "artist": "Tester",
+            "lyrics_json": json_dumps(song_payload),
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        },
+    )
+
+    response = client.patch(
+        "/api/songs/song_shift_case/timing-shift",
+        json={"fromLineId": "l2", "offset": 12.5},
+    )
+    response.raise_for_status()
+
+    lyrics = response.json()["lyrics"]
+    assert lyrics[0]["start"] == 1
+    assert lyrics[1]["start"] == 15.5
+    assert lyrics[1]["segments"][0]["start"] == 15.6
+    persisted = client.get("/api/songs/song_shift_case").json()["lyrics"]
+    assert persisted[1]["end"] == 16.5
+    export_payload = json.loads((test_settings.export_dir / "song_shift_case.json").read_text(encoding="utf-8"))
+    assert export_payload["lyrics"][1]["start"] == 15.5
+    assert list((test_settings.raw_dir.parent / "backups" / "songs").glob("song_shift_case.*.json"))
+
+
 def test_update_song_metadata_persists(client) -> None:
     timestamp = utc_now()
     song_payload = {

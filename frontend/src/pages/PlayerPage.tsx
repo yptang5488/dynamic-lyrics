@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { LyricsPanel } from '../components/LyricsPanel'
 import { PageShell } from '../components/PageShell'
 import { PlayerControls } from '../components/PlayerControls'
-import { getSong, resolveMediaUrl, updateSongChantEvents, updateSongLyricNotes, updateSongLyricOffset, updateSongMetadata } from '../lib/api'
+import { getSong, resolveMediaUrl, shiftSongTiming, updateSongChantEvents, updateSongLyricNotes, updateSongLyricOffset, updateSongMetadata } from '../lib/api'
 import { IS_PRACTICE_MODE } from '../lib/practiceMode'
 import { getTrimmedDuration, normalizeTrimSeconds, toRawTime, toVisibleTime } from '../lib/time'
 import type { SongChantEvent, SongLyricLine } from '../types/api'
@@ -27,6 +27,9 @@ export function PlayerPage() {
   const [draftTimingOffset, setDraftTimingOffset] = useState(0)
   const [isCompactCalibrationOpen, setIsCompactCalibrationOpen] = useState(false)
   const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false)
+  const [isTimingShiftOpen, setIsTimingShiftOpen] = useState(false)
+  const [draftShiftFromLineId, setDraftShiftFromLineId] = useState('')
+  const [draftShiftOffset, setDraftShiftOffset] = useState('')
   const [draftTitle, setDraftTitle] = useState('')
   const [draftArtist, setDraftArtist] = useState('')
   const [draftTrimStart, setDraftTrimStart] = useState('0')
@@ -81,6 +84,14 @@ export function PlayerPage() {
       setDraftTrimStart(String(normalizeTrimSeconds(song.audio.trimStart)))
       setDraftTrimEnd(String(normalizeTrimSeconds(song.audio.trimEnd)))
       setIsMetadataEditorOpen(false)
+    },
+  })
+  const timingShiftMutation = useMutation({
+    mutationFn: ({ fromLineId, offset }: { fromLineId: string; offset: number }) => shiftSongTiming(songId, fromLineId, offset),
+    onSuccess: (song) => {
+      queryClient.setQueryData(['song', song.id], song)
+      setIsTimingShiftOpen(false)
+      setDraftShiftOffset('')
     },
   })
 
@@ -147,6 +158,9 @@ export function PlayerPage() {
     setSelectedEditLineId(null)
     setIsCompactCalibrationOpen(false)
     setIsMetadataEditorOpen(false)
+    setIsTimingShiftOpen(false)
+    setDraftShiftFromLineId('')
+    setDraftShiftOffset('')
     setDraftTitle('')
     setDraftArtist('')
     setDraftTrimStart('0')
@@ -240,6 +254,7 @@ export function PlayerPage() {
   function toggleCompactCalibrationSettings() {
     setDraftTimingOffset(timingOffset)
     setIsMetadataEditorOpen(false)
+    setIsTimingShiftOpen(false)
     setIsCompactCalibrationOpen((value) => !value)
   }
 
@@ -254,7 +269,15 @@ export function PlayerPage() {
     setDraftTrimStart(String(normalizeTrimSeconds(song.audio.trimStart)))
     setDraftTrimEnd(String(normalizeTrimSeconds(song.audio.trimEnd)))
     setIsCompactCalibrationOpen(false)
+    setIsTimingShiftOpen(false)
     setIsMetadataEditorOpen((value) => !value)
+  }
+
+  function toggleTimingShiftTool() {
+    setIsCompactCalibrationOpen(false)
+    setIsMetadataEditorOpen(false)
+    setDraftShiftFromLineId((value) => value || activeLine?.id || '')
+    setIsTimingShiftOpen((value) => !value)
   }
 
   function saveMetadata() {
@@ -275,6 +298,16 @@ export function PlayerPage() {
         setIsCompactCalibrationOpen(false)
       },
     })
+  }
+
+  function applyTimingShift() {
+    const fromLineId = draftShiftFromLineId.trim()
+    const offset = parseShiftOffset(draftShiftOffset)
+    if (!fromLineId || offset === null) {
+      return
+    }
+
+    timingShiftMutation.mutate({ fromLineId, offset })
   }
 
   function handleSelectEditLine(line: SongLyricLine) {
@@ -304,7 +337,7 @@ export function PlayerPage() {
   }
 
   function handleSaveChantEvents(events: SongChantEvent[]) {
-    const nextEvents = shiftChantEvents(events, -timingOffset).sort((left, right) => left.start - right.start)
+    const nextEvents = shiftChantEvents(events, -timingOffset, false).sort((left, right) => left.start - right.start)
     setEditedChantEvents(nextEvents)
     chantEventsMutation.mutate(nextEvents)
   }
@@ -354,6 +387,10 @@ export function PlayerPage() {
     && isValidTrimDraft(draftTrimStart)
     && isValidTrimDraft(draftTrimEnd)
     && !metadataMutation.isPending
+  const activeBaseLine = activeLine ? originalLyrics.find((line) => line.id === activeLine.id) : undefined
+  const shiftOffset = parseShiftOffset(draftShiftOffset)
+  const shiftPreview = shiftOffset === null ? null : buildShiftPreview(originalLyrics, draftShiftFromLineId.trim(), shiftOffset)
+  const canApplyTimingShift = Boolean(shiftPreview) && !shiftPreview?.hasNegativeTime && !timingShiftMutation.isPending
 
   return (
     <PageShell
@@ -363,7 +400,7 @@ export function PlayerPage() {
       hideHeader
     >
       <div className="page-grid">
-        <section className={`player-hero${isCompactCalibrationOpen || isMetadataEditorOpen ? ' player-hero--popover-open' : ''}`} aria-label="Playback controls">
+        <section className={`player-hero${isCompactCalibrationOpen || isMetadataEditorOpen || isTimingShiftOpen ? ' player-hero--popover-open' : ''}`} aria-label="Playback controls">
           <Link className="player-hero__back" to="/" aria-label="Back to library">
             <span aria-hidden="true">←</span>
             <span>Back to library</span>
@@ -413,6 +450,53 @@ export function PlayerPage() {
                       {metadataMutation.isError ? (
                         <div className="error-state">
                           {metadataMutation.error instanceof Error ? metadataMutation.error.message : 'Failed to save song details.'}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div> : null}
+                {!IS_PRACTICE_MODE ? <div className="player-calibration">
+                  <button
+                    type="button"
+                    className="secondary-button player-calibration__toggle"
+                    onClick={toggleTimingShiftTool}
+                    aria-expanded={isTimingShiftOpen}
+                    aria-controls="song-timing-shift-tool"
+                  >
+                    Timing shift
+                  </button>
+                  {isTimingShiftOpen ? (
+                    <div id="song-timing-shift-tool" className="player-calibration__panel">
+                      <div className="player-calibration__value">Shift lyrics from line</div>
+                      <div className="muted">
+                        Active: {activeBaseLine ? `${activeBaseLine.id} ${formatSeconds(activeBaseLine.start)}-${formatSeconds(activeBaseLine.end)}` : 'none'}
+                      </div>
+                      <label>
+                        <span className="field-label">From line id</span>
+                        <input className="field" value={draftShiftFromLineId} onChange={(event) => setDraftShiftFromLineId(event.target.value)} placeholder="l45" />
+                      </label>
+                      <label>
+                        <span className="field-label">Offset seconds</span>
+                        <input className="field" type="number" step={0.1} value={draftShiftOffset} onChange={(event) => setDraftShiftOffset(event.target.value)} placeholder="12.5" />
+                      </label>
+                      {shiftPreview ? (
+                        <div className="muted">
+                          Preview: {shiftPreview.linesShifted} lines, {shiftPreview.firstLineId} {formatSeconds(shiftPreview.firstStart)} → {formatSeconds(shiftPreview.firstAfterStart)}, {shiftPreview.lastLineId} ends at {formatSeconds(shiftPreview.lastAfterEnd)}.
+                        </div>
+                      ) : null}
+                      {shiftPreview?.hasNegativeTime ? <div className="error-state">This shift would create a negative timestamp.</div> : null}
+                      <div className="player-calibration__header-actions">
+                        <button type="button" className="primary-button player-calibration__small-button" onClick={applyTimingShift} disabled={!canApplyTimingShift}>
+                          {timingShiftMutation.isPending ? 'Applying...' : 'Apply'}
+                        </button>
+                        <button type="button" className="ghost-button player-calibration__small-button" onClick={toggleTimingShiftTool}>
+                          Cancel
+                        </button>
+                      </div>
+                      {timingOffset !== 0 ? <div className="muted">Calibration offset {formatSignedSeconds(timingOffset)} still applies during playback.</div> : null}
+                      {timingShiftMutation.isError ? (
+                        <div className="error-state">
+                          {timingShiftMutation.error instanceof Error ? timingShiftMutation.error.message : 'Failed to shift timing.'}
                         </div>
                       ) : null}
                     </div>
@@ -533,13 +617,13 @@ function shiftLyrics(lines: SongLyricLine[], offset: number): SongLyricLine[] {
   })
 }
 
-function shiftChantEvents(events: SongChantEvent[], offset: number): SongChantEvent[] {
+function shiftChantEvents(events: SongChantEvent[], offset: number, clampStart = true): SongChantEvent[] {
   if (offset === 0) {
     return events
   }
 
   return events.map((event) => {
-    const start = Math.max(0, event.start + offset)
+    const start = clampStart ? Math.max(0, event.start + offset) : event.start + offset
     const end = Math.max(start + 0.1, event.end + offset)
 
     return { ...event, start, end }
@@ -565,6 +649,48 @@ function isValidTrimDraft(value: string) {
 
 function parseTrimDraft(value: string) {
   return Math.round(Number(value) * 10) / 10
+}
+
+function parseShiftOffset(value: string) {
+  if (value.trim() === '') {
+    return null
+  }
+
+  const seconds = Number(value)
+  if (!Number.isFinite(seconds)) {
+    return null
+  }
+
+  return Math.round(seconds * 1000) / 1000
+}
+
+function buildShiftPreview(lines: SongLyricLine[], fromLineId: string, offset: number) {
+  const startIndex = lines.findIndex((line) => line.id === fromLineId)
+  if (startIndex < 0) {
+    return null
+  }
+
+  const shiftedLines = lines.slice(startIndex)
+  const firstLine = shiftedLines[0]
+  const lastLine = shiftedLines[shiftedLines.length - 1]
+
+  return {
+    linesShifted: shiftedLines.length,
+    firstLineId: firstLine.id,
+    firstStart: firstLine.start,
+    firstAfterStart: roundTime(firstLine.start + offset),
+    lastLineId: lastLine.id,
+    lastAfterEnd: roundTime(lastLine.end + offset),
+    hasNegativeTime: shiftedLines.some((line) => line.start + offset < 0 || line.end + offset < 0),
+  }
+}
+
+function roundTime(value: number) {
+  return Math.round(value * 1000) / 1000
+}
+
+function formatSeconds(value: number) {
+  return `${value.toFixed(1)}s`
 }
 
 function formatSignedSeconds(value: number) {

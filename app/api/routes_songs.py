@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import shutil
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import app.config as config
 from fastapi import APIRouter, HTTPException, status
@@ -23,6 +26,7 @@ from app.models.schemas import (
     SongLyricOffsetUpdateRequest,
     SongMetadataUpdateRequest,
     SongResponse,
+    SongTimingShiftRequest,
 )
 from app.services.chant_romanization import normalize_chant_notes
 
@@ -113,6 +117,40 @@ def update_song_lyric_offset(
     return SongResponse.model_validate(next_payload)
 
 
+@router.patch("/{song_id}/timing-shift", response_model=SongResponse)
+def shift_song_timing(song_id: str, request: SongTimingShiftRequest) -> SongResponse:
+    song = fetch_one("songs", song_id)
+    if not song:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="song not found"
+        )
+
+    payload = SongResponse.model_validate(json_loads(song["lyrics_json"], {}))
+    start_index = next(
+        (index for index, line in enumerate(payload.lyrics) if line.id == request.from_line_id),
+        None,
+    )
+    if start_index is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"unknown lyric line id: {request.from_line_id}",
+        )
+
+    next_payload = payload.model_dump(by_alias=True)
+    lines_to_shift = next_payload["lyrics"][start_index:]
+    validate_shifted_times(lines_to_shift, request.offset)
+
+    backup_song_file(song_id)
+    for line in lines_to_shift:
+        shift_timed_payload(line, request.offset)
+        for segment in line.get("segments", []):
+            if isinstance(segment, dict):
+                shift_timed_payload(segment, request.offset)
+
+    persist_song_payload(song_id, next_payload)
+    return SongResponse.model_validate(next_payload)
+
+
 @router.patch("/{song_id}/lyric-notes", response_model=SongResponse)
 def update_song_lyric_notes(
     song_id: str, request: SongLyricNotesUpdateRequest
@@ -172,6 +210,37 @@ def update_song_chant_events(
     ]
     persist_song_payload(song_id, next_payload)
     return SongResponse.model_validate(next_payload)
+
+
+def validate_shifted_times(lines: list[dict[str, Any]], offset: float) -> None:
+    for line in lines:
+        for payload in [line, *line.get("segments", [])]:
+            if not isinstance(payload, dict):
+                continue
+            for field in ("start", "end"):
+                value = payload.get(field)
+                if isinstance(value, (int, float)) and round(value + offset, 3) < 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="timing shift would create a negative timestamp",
+                    )
+
+
+def shift_timed_payload(payload: dict[str, Any], offset: float) -> None:
+    for field in ("start", "end"):
+        value = payload.get(field)
+        if isinstance(value, (int, float)):
+            payload[field] = round(value + offset, 3)
+
+
+def backup_song_file(song_id: str) -> None:
+    song_path = config.settings.raw_dir.parent / "songs" / f"{song_id}.json"
+    if not song_path.exists():
+        return
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    backup_dir = config.settings.raw_dir.parent / "backups" / "songs"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(song_path, backup_dir / f"{song_id}.{timestamp}.json")
 
 
 def persist_song_payload(

@@ -181,6 +181,20 @@ export async function updateSongLyricOffset(songId: string, lyricOffset: number)
   return parseResponse<SongResponse>(response)
 }
 
+export async function shiftSongTiming(songId: string, fromLineId: string, offset: number) {
+  if (IS_PRACTICE_MODE) {
+    throw new Error('Static practice exports cannot permanently shift song timing.')
+  }
+
+  const response = await fetch(resolveUrl(`/api/songs/${songId}/timing-shift`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fromLineId, offset }),
+  })
+
+  return parseResponse<SongResponse>(response)
+}
+
 export async function updateSongMetadata(songId: string, title: string, artist: string, trimStart: number, trimEnd: number) {
   if (IS_PRACTICE_MODE) {
     updatePracticeSongSettings(songId, { title, artist, trimStart, trimEnd })

@@ -165,6 +165,13 @@ class SongLyricOffsetUpdateRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class SongTimingShiftRequest(BaseModel):
+    from_line_id: str = Field(alias="fromLineId")
+    offset: float
+
+    model_config = {"populate_by_name": True}
+
+
 class SongMetadataUpdateRequest(BaseModel):
     title: str
     artist: str
