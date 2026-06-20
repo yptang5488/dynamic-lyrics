@@ -34,6 +34,8 @@ def test_build_song_persists_export_and_expected_payload_shape(test_settings) ->
         "sourceId": "src_test1234",
         "playbackUrl": "/media/raw/sample.mp3",
         "duration": 123.4,
+        "trimStart": 0,
+        "trimEnd": 0,
     }
     assert song["lyrics"][0]["text"] == "First line"
     assert song["lyrics"][0]["segments"] == []
@@ -56,3 +58,18 @@ def test_build_song_preserves_nested_raw_media_url(test_settings) -> None:
     song = build_song(source, [])
 
     assert song["audio"]["playbackUrl"] == "/media/raw/src_spotify1_spotdl/NewJeans%20-%20Cookie.mp3"
+
+
+def test_build_song_preserves_audio_trim_metadata(test_settings) -> None:
+    source = {
+        "id": "src_trimmed",
+        "original_path": str(test_settings.raw_dir / "trimmed.mp3"),
+        "duration": 100.0,
+        "trimStart": 3.5,
+        "trimEnd": 2.0,
+    }
+
+    song = build_song(source, [])
+
+    assert song["audio"]["trimStart"] == 3.5
+    assert song["audio"]["trimEnd"] == 2.0

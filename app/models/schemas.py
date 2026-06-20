@@ -119,6 +119,8 @@ class AudioPayload(BaseModel):
     source_id: str = Field(alias="sourceId")
     playback_url: str = Field(alias="playbackUrl")
     duration: float | None = None
+    trim_start: float = Field(default=0, ge=0, alias="trimStart")
+    trim_end: float = Field(default=0, ge=0, alias="trimEnd")
 
     model_config = {"populate_by_name": True}
 
@@ -166,6 +168,10 @@ class SongLyricOffsetUpdateRequest(BaseModel):
 class SongMetadataUpdateRequest(BaseModel):
     title: str
     artist: str
+    trim_start: float | None = Field(default=None, ge=0, alias="trimStart")
+    trim_end: float | None = Field(default=None, ge=0, alias="trimEnd")
+
+    model_config = {"populate_by_name": True}
 
 
 class SongLyricNotesUpdate(BaseModel):

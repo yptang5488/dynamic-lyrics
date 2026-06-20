@@ -25,6 +25,8 @@ interface PracticeSongSettings {
   lyricOffset?: number
   title?: string
   artist?: string
+  trimStart?: number
+  trimEnd?: number
   lyricNotes?: Record<string, Array<Record<string, unknown>>>
   chantEvents?: SongChantEvent[]
 }
@@ -179,16 +181,16 @@ export async function updateSongLyricOffset(songId: string, lyricOffset: number)
   return parseResponse<SongResponse>(response)
 }
 
-export async function updateSongMetadata(songId: string, title: string, artist: string) {
+export async function updateSongMetadata(songId: string, title: string, artist: string, trimStart: number, trimEnd: number) {
   if (IS_PRACTICE_MODE) {
-    updatePracticeSongSettings(songId, { title, artist })
+    updatePracticeSongSettings(songId, { title, artist, trimStart, trimEnd })
     return getSong(songId)
   }
 
   const response = await fetch(resolveUrl(`/api/songs/${songId}/metadata`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, artist }),
+    body: JSON.stringify({ title, artist, trimStart, trimEnd }),
   })
 
   return parseResponse<SongResponse>(response)
@@ -258,6 +260,11 @@ function applyPracticeSettings(song: SongResponse): SongResponse {
     ...song,
     title: settings.title ?? song.title,
     artist: settings.artist ?? song.artist,
+    audio: {
+      ...song.audio,
+      trimStart: settings.trimStart ?? song.audio.trimStart,
+      trimEnd: settings.trimEnd ?? song.audio.trimEnd,
+    },
     lyrics,
     chantEvents: settings.chantEvents ?? song.chantEvents,
     lyricOffset: settings.lyricOffset ?? song.lyricOffset ?? 0,

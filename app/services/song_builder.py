@@ -24,6 +24,8 @@ def build_song(source: dict, aligned_lyrics: list[dict[str, object]]) -> dict:
             "sourceId": source["id"],
             "playbackUrl": playback_url,
             "duration": source.get("duration"),
+            "trimStart": source.get("trimStart", 0),
+            "trimEnd": source.get("trimEnd", 0),
         },
         "lyricOffset": 0,
         "chantEvents": [],

@@ -63,6 +63,8 @@ export interface SongAudio {
   sourceId: string
   playbackUrl: string
   duration?: number | null
+  trimStart?: number | null
+  trimEnd?: number | null
 }
 
 export interface SongLyricLine {

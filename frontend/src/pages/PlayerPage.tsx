@@ -6,6 +6,7 @@ import { PageShell } from '../components/PageShell'
 import { PlayerControls } from '../components/PlayerControls'
 import { getSong, resolveMediaUrl, updateSongChantEvents, updateSongLyricNotes, updateSongLyricOffset, updateSongMetadata } from '../lib/api'
 import { IS_PRACTICE_MODE } from '../lib/practiceMode'
+import { getTrimmedDuration, normalizeTrimSeconds, toRawTime, toVisibleTime } from '../lib/time'
 import type { SongChantEvent, SongLyricLine } from '../types/api'
 
 const EMPTY_LYRICS: SongLyricLine[] = []
@@ -18,7 +19,7 @@ export function PlayerPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
+  const [rawDuration, setRawDuration] = useState(0)
   const [showTranslation, setShowTranslation] = useState(true)
   const [showChantRomanization, setShowChantRomanization] = useState(true)
   const [autoScroll, setAutoScroll] = useState(true)
@@ -30,6 +31,8 @@ export function PlayerPage() {
   const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false)
   const [draftTitle, setDraftTitle] = useState('')
   const [draftArtist, setDraftArtist] = useState('')
+  const [draftTrimStart, setDraftTrimStart] = useState('0')
+  const [draftTrimEnd, setDraftTrimEnd] = useState('0')
   const [editedLineNotes, setEditedLineNotes] = useState<Record<string, Array<Record<string, unknown>>>>({})
   const [editedChantEvents, setEditedChantEvents] = useState<SongChantEvent[] | null>(null)
   const [activeSongId, setActiveSongId] = useState(songId)
@@ -40,6 +43,11 @@ export function PlayerPage() {
     queryFn: () => getSong(songId),
     enabled: Boolean(songId),
   })
+  const trimStart = normalizeTrimSeconds(songQuery.data?.audio.trimStart)
+  const trimEnd = normalizeTrimSeconds(songQuery.data?.audio.trimEnd)
+  const audioDuration = rawDuration || songQuery.data?.audio.duration || 0
+  const playbackDuration = getTrimmedDuration(audioDuration, trimStart, trimEnd)
+  const trimEndTime = trimStart + playbackDuration
   const lyricOffsetMutation = useMutation({
     mutationFn: (lyricOffset: number) => updateSongLyricOffset(songId, lyricOffset),
     onSuccess: (song) => {
@@ -67,11 +75,13 @@ export function PlayerPage() {
     },
   })
   const metadataMutation = useMutation({
-    mutationFn: ({ title, artist }: { title: string; artist: string }) => updateSongMetadata(songId, title, artist),
+    mutationFn: ({ title, artist, trimStart, trimEnd }: { title: string; artist: string; trimStart: number; trimEnd: number }) => updateSongMetadata(songId, title, artist, trimStart, trimEnd),
     onSuccess: (song) => {
       queryClient.setQueryData(['song', song.id], song)
       setDraftTitle(song.title)
       setDraftArtist(song.artist)
+      setDraftTrimStart(String(normalizeTrimSeconds(song.audio.trimStart)))
+      setDraftTrimEnd(String(normalizeTrimSeconds(song.audio.trimEnd)))
       setIsMetadataEditorOpen(false)
     },
   })
@@ -86,8 +96,20 @@ export function PlayerPage() {
       return
     }
 
-    const handleTimeUpdate = () => setCurrentTime(audio.currentTime)
-    const handleLoadedMetadata = () => setDuration(audio.duration || 0)
+    const handleTimeUpdate = () => {
+      if (playbackDuration > 0 && audio.currentTime >= trimEndTime) {
+        audio.currentTime = trimEndTime
+        audio.pause()
+      }
+      setCurrentTime(toVisibleTime(audio.currentTime, trimStart, playbackDuration))
+    }
+    const handleLoadedMetadata = () => {
+      setRawDuration(audio.duration || 0)
+      if (trimStart > 0 && audio.currentTime < trimStart) {
+        audio.currentTime = trimStart
+      }
+      setCurrentTime(toVisibleTime(audio.currentTime, trimStart, getTrimmedDuration(audio.duration || 0, trimStart, trimEnd)))
+    }
     const handlePlay = () => setIsPlaying(true)
     const handlePause = () => setIsPlaying(false)
 
@@ -102,7 +124,22 @@ export function PlayerPage() {
       audio.removeEventListener('play', handlePlay)
       audio.removeEventListener('pause', handlePause)
     }
-  }, [songQuery.data?.id])
+  }, [playbackDuration, songQuery.data?.id, trimEnd, trimEndTime, trimStart])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !songQuery.data) {
+      return
+    }
+
+    if (audio.currentTime < trimStart) {
+      audio.currentTime = trimStart
+    } else if (playbackDuration > 0 && audio.currentTime > trimEndTime) {
+      audio.currentTime = trimEndTime
+    }
+
+    setCurrentTime(toVisibleTime(audio.currentTime, trimStart, playbackDuration))
+  }, [playbackDuration, songQuery.data, trimEndTime, trimStart])
 
   if (songId !== activeSongId) {
     setActiveSongId(songId)
@@ -114,6 +151,10 @@ export function PlayerPage() {
     setIsMetadataEditorOpen(false)
     setDraftTitle('')
     setDraftArtist('')
+    setDraftTrimStart('0')
+    setDraftTrimEnd('0')
+    setRawDuration(0)
+    setCurrentTime(0)
     setTimingOffset(0)
     setDraftTimingOffset(0)
     setSyncedOffsetKey('')
@@ -146,6 +187,9 @@ export function PlayerPage() {
     }
 
     if (audio.paused) {
+      if (audio.currentTime < trimStart || (playbackDuration > 0 && audio.currentTime >= trimEndTime)) {
+        audio.currentTime = trimStart
+      }
       void audio.play()
       return
     }
@@ -159,7 +203,7 @@ export function PlayerPage() {
       return
     }
 
-    audio.currentTime = value
+    audio.currentTime = toRawTime(value, trimStart, playbackDuration)
     setCurrentTime(value)
   }
 
@@ -169,7 +213,7 @@ export function PlayerPage() {
       return
     }
 
-    audio.currentTime = line.start
+    audio.currentTime = toRawTime(line.start, trimStart, playbackDuration)
     setCurrentTime(line.start)
     void audio.play()
   }
@@ -180,7 +224,7 @@ export function PlayerPage() {
       return
     }
 
-    audio.currentTime = event.start
+    audio.currentTime = toRawTime(event.start, trimStart, playbackDuration)
     setCurrentTime(event.start)
     void audio.play()
   }
@@ -212,12 +256,19 @@ export function PlayerPage() {
 
     setDraftTitle(song.title)
     setDraftArtist(song.artist)
+    setDraftTrimStart(String(normalizeTrimSeconds(song.audio.trimStart)))
+    setDraftTrimEnd(String(normalizeTrimSeconds(song.audio.trimEnd)))
     setIsCompactCalibrationOpen(false)
     setIsMetadataEditorOpen((value) => !value)
   }
 
   function saveMetadata() {
-    metadataMutation.mutate({ title: draftTitle.trim(), artist: draftArtist.trim() })
+    metadataMutation.mutate({
+      title: draftTitle.trim(),
+      artist: draftArtist.trim(),
+      trimStart: parseTrimDraft(draftTrimStart),
+      trimEnd: parseTrimDraft(draftTrimEnd),
+    })
   }
 
   function applyCalibrationSettings() {
@@ -303,7 +354,11 @@ export function PlayerPage() {
   }
 
   const song = songQuery.data
-  const canSaveMetadata = draftTitle.trim().length > 0 && draftArtist.trim().length > 0 && !metadataMutation.isPending
+  const canSaveMetadata = draftTitle.trim().length > 0
+    && draftArtist.trim().length > 0
+    && isValidTrimDraft(draftTrimStart)
+    && isValidTrimDraft(draftTrimEnd)
+    && !metadataMutation.isPending
 
   return (
     <PageShell
@@ -343,6 +398,14 @@ export function PlayerPage() {
                       <label>
                         <span className="field-label">Artist</span>
                         <input className="field" value={draftArtist} onChange={(event) => setDraftArtist(event.target.value)} />
+                      </label>
+                      <label>
+                        <span className="field-label">Trim start seconds</span>
+                        <input className="field" type="number" min={0} step={0.1} value={draftTrimStart} onChange={(event) => setDraftTrimStart(event.target.value)} />
+                      </label>
+                      <label>
+                        <span className="field-label">Trim end seconds</span>
+                        <input className="field" type="number" min={0} step={0.1} value={draftTrimEnd} onChange={(event) => setDraftTrimEnd(event.target.value)} />
                       </label>
                       <div className="player-calibration__header-actions">
                         <button type="button" className="primary-button player-calibration__small-button" onClick={saveMetadata} disabled={!canSaveMetadata}>
@@ -401,7 +464,7 @@ export function PlayerPage() {
             )}
             isPlaying={isPlaying}
             currentTime={currentTime}
-            duration={duration || song.audio.duration || 0}
+            duration={playbackDuration}
             onTogglePlay={togglePlay}
             onSeek={handleSeek}
           />
@@ -506,6 +569,15 @@ function clampOffset(value: number, minimum: number, maximum: number) {
   }
 
   return Math.min(Math.max(value, minimum), maximum)
+}
+
+function isValidTrimDraft(value: string) {
+  const seconds = Number(value)
+  return value.trim() !== '' && Number.isFinite(seconds) && seconds >= 0
+}
+
+function parseTrimDraft(value: string) {
+  return Math.round(Number(value) * 10) / 10
 }
 
 function formatSignedSeconds(value: number) {

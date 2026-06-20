@@ -84,6 +84,10 @@ def update_song_metadata(song_id: str, request: SongMetadataUpdateRequest) -> So
     next_payload = payload.model_dump(by_alias=True)
     next_payload["title"] = title
     next_payload["artist"] = artist
+    if request.trim_start is not None:
+        next_payload["audio"]["trimStart"] = round(request.trim_start, 1)
+    if request.trim_end is not None:
+        next_payload["audio"]["trimEnd"] = round(request.trim_end, 1)
     persist_song_payload(
         song_id,
         next_payload,

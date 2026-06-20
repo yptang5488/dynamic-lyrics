@@ -108,12 +108,14 @@ def test_update_song_metadata_persists(client) -> None:
 
     response = client.patch(
         "/api/songs/song_metadata_case/metadata",
-        json={"title": " New Title ", "artist": " New Artist "},
+        json={"title": " New Title ", "artist": " New Artist ", "trimStart": 31.04, "trimEnd": 38},
     )
     response.raise_for_status()
 
     assert response.json()["title"] == "New Title"
     assert response.json()["artist"] == "New Artist"
+    assert response.json()["audio"]["trimStart"] == 31.0
+    assert response.json()["audio"]["trimEnd"] == 38.0
     assert client.get("/api/songs/song_metadata_case").json()["title"] == "New Title"
     catalog_entry = next(
         song for song in client.get("/api/songs").json() if song["id"] == "song_metadata_case"
