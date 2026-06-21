@@ -1,5 +1,5 @@
 import { formatTime } from '../lib/time'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 interface PlayerControlsProps {
   title: string
@@ -13,6 +13,8 @@ interface PlayerControlsProps {
 }
 
 export function PlayerControls({ title, artist, actions, isPlaying, currentTime, duration, onTogglePlay, onSeek }: PlayerControlsProps) {
+  const seekProgress = duration > 0 ? `${Math.min(currentTime / duration, 1) * 100}%` : '0%'
+
   return (
     <div className="player-controls">
       <div className="transport-row">
@@ -35,6 +37,7 @@ export function PlayerControls({ title, artist, actions, isPlaying, currentTime,
           max={duration || 0}
           step={0.1}
           value={Math.min(currentTime, duration || 0)}
+          style={{ '--seek-progress': seekProgress } as CSSProperties}
           onChange={(event) => onSeek(Number(event.target.value))}
         />
         <span>{formatTime(duration)}</span>

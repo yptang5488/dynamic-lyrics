@@ -4,22 +4,56 @@
   font-family: 'Manrope', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #123038;
-  background:
-    radial-gradient(circle at top left, rgba(236, 167, 78, 0.2), transparent 28%),
-    radial-gradient(circle at top right, rgba(73, 143, 133, 0.18), transparent 24%),
-    linear-gradient(180deg, #f6efe2 0%, #f8f4ed 36%, #fbfaf7 100%);
+  color: var(--ink);
+  background: var(--app-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+:root,
+[data-theme='soft-sage'] {
+  --app-bg: #fcfaf2;
+  --surface: #FCFAF2;
+  --border: rgba(18, 48, 56, 0.12);
+  --ink: #123038;
+  --muted: #5d746e;
+  --accent: #65785C;
+  --warm: #d68a3a;
+  --progress: #afc363;
+  --progress-border: #afaeaf;
+  --progress-thumb-border: #A7B382;
+  --progress-border-soft: #A7B3821f;
+  --progress-track-bg: #fff;
+  --danger: #a1462b;
+  --lyric-line-border: var(--border);
+  --lyric-line-bg: #fff;
+  --active-lyric-bg: #edf2e3;
+  --active-lyric-cutout-bg: #edf2e3;
+  --active-lyric-marker: var(--progress);
+  --shadow: 0 24px 60px rgba(40, 54, 54, 0.12);
+}
+
+[data-theme='classic'] {
+  --app-bg: radial-gradient(circle at top left, rgba(236, 167, 78, 0.2), transparent 28%), radial-gradient(circle at top right, rgba(73, 143, 133, 0.18), transparent 24%), linear-gradient(180deg, #f6efe2 0%, #f8f4ed 36%, #fbfaf7 100%);
   --surface: rgba(255, 250, 242, 0.82);
   --border: rgba(18, 48, 56, 0.12);
   --ink: #123038;
   --muted: #5d746e;
   --accent: #0f7a74;
   --warm: #d68a3a;
+  --progress: #0f7a74;
+  --progress-border: #dad9da;
+  --progress-thumb-border: #dad9da;
+  --progress-border-soft: #dad9da;
+  --progress-track-bg: #fff;
   --danger: #a1462b;
+  --lyric-line-border: transparent;
+  --lyric-line-bg: rgba(255, 255, 255, 0.44);
+  --active-lyric-bg: #e0eeec;
+  --active-lyric-cutout-bg: #e0eeec;
+  --active-lyric-marker: #0f7a74;
   --shadow: 0 24px 60px rgba(40, 54, 54, 0.12);
 }
 
@@ -80,6 +114,21 @@ button {
   width: min(1120px, 100%);
 }
 
+.theme-toggle {
+  position: fixed;
+  z-index: 30;
+  top: 16px;
+  right: 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(40, 54, 54, 0.1);
+}
+
 .app-header {
   display: flex;
   align-items: flex-start;
@@ -93,7 +142,7 @@ button {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 999px;
   background: rgba(255, 252, 246, 0.7);
   color: var(--muted);
@@ -137,7 +186,7 @@ button {
 .hero-card,
 .status-card,
 .lyrics-card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--lyric-line-border);
   background: var(--surface);
   backdrop-filter: blur(18px);
   border-radius: 28px;
@@ -326,7 +375,7 @@ button {
 
 .secondary-button,
 .chip-button {
-  background: rgba(15, 122, 116, 0.1);
+  background: rgba(135, 170, 142, 0.22);
   color: var(--accent);
 }
 
@@ -407,7 +456,7 @@ button {
   height: 30px;
   align-items: center;
   justify-content: center;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.88);
   color: rgba(18, 48, 56, 0.42);
@@ -499,7 +548,7 @@ button {
 
 .progress-track {
   width: 100%;
-  height: 12px;
+  height: 8px;
   overflow: hidden;
   border-radius: 999px;
   background: rgba(18, 48, 56, 0.08);
@@ -508,7 +557,7 @@ button {
 .progress-bar {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--warm), var(--accent));
+  background: linear-gradient(90deg, var(--warm), var(--progress));
   transition: width 220ms ease;
 }
 
@@ -659,11 +708,10 @@ button {
   height: 72px;
   border-radius: 50%;
   border: 0;
-  background: linear-gradient(135deg, var(--accent), #0c5e59);
+  background: var(--accent);
   color: white;
   font-size: 1rem;
   font-weight: 800;
-  box-shadow: 0 20px 40px rgba(15, 122, 116, 0.28);
 }
 
 .time-row {
@@ -675,6 +723,47 @@ button {
 
 .seek-input {
   width: 100%;
+  accent-color: var(--progress);
+  appearance: none;
+  background: transparent;
+}
+
+.seek-input::-webkit-slider-runnable-track {
+  height: 8px;
+  border: 1px solid var(--progress-border);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--progress) var(--seek-progress), var(--progress-track-bg) var(--seek-progress));
+}
+
+.seek-input::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border: 1px solid var(--progress-thumb-border);
+  border-radius: 50%;
+  background: var(--active-lyric-marker);
+}
+
+.seek-input::-moz-range-track {
+  height: 12px;
+  border: 1px solid var(--progress-border-soft);
+  border-radius: 999px;
+  background: var(--progress-track-bg);
+}
+
+.seek-input::-moz-range-progress {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--progress);
+}
+
+.seek-input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--progress-border-soft);
+  border-radius: 50%;
+  background: var(--progress);
 }
 
 .mode-bar {
@@ -740,12 +829,14 @@ button {
 
 .lyric-line {
   position: relative;
+  isolation: isolate;
   width: 100%;
+  overflow: hidden;
   text-align: left;
   padding: 18px;
-  border: 1px solid transparent;
+  border: 1px solid var(--lyric-line-border);
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.44);
+  background: var(--lyric-line-bg);
   color: inherit;
   cursor: pointer;
 }
@@ -906,8 +997,32 @@ button {
 
 .lyric-line--active {
   border-color: rgba(15, 122, 116, 0.24);
-  background: linear-gradient(135deg, rgba(15, 122, 116, 0.14), rgba(255, 255, 255, 0.78));
+  background: var(--active-lyric-bg);
   transform: translateY(-1px);
+}
+
+.lyric-line--active::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 14px;
+  background: var(--progress);
+  z-index: 0;
+}
+
+.lyric-line--active::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 2px;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--active-lyric-cutout-bg);
+  z-index: 0;
+}
+
+.lyric-line > * {
+  position: relative;
+  z-index: 1;
 }
 
 .lyric-line--selected-edit {
