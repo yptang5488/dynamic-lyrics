@@ -67,6 +67,7 @@ def get_source(source_id: str) -> SourceDetailResponse:
         id=source["id"],
         type=source["type"],
         status=source["status"],
+        sourceUrl=source["source_url"],
         title=source["title"],
         artist=source["artist"],
         duration=source["duration"],

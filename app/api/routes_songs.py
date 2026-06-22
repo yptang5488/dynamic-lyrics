@@ -42,6 +42,12 @@ def list_songs() -> list[SongCatalogEntry]:
         except (TypeError, ValueError, ValidationError):
             continue
 
+        source = fetch_one("sources", payload.audio.source_id)
+        player_path = (
+            f"/youtube-player/{song['id']}"
+            if source and source.get("type") == "youtube" and source.get("source_url")
+            else f"/player/{song['id']}"
+        )
         entries.append(
             SongCatalogEntry(
                 id=song["id"],
@@ -51,7 +57,7 @@ def list_songs() -> list[SongCatalogEntry]:
                 has_translation=any(line.translation for line in payload.lyrics),
                 has_notes=bool(payload.chant_events)
                 or any(len(line.notes) > 0 for line in payload.lyrics),
-                player_path=f"/player/{song['id']}",
+                player_path=player_path,
             )
         )
     return entries

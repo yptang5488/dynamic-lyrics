@@ -16,6 +16,7 @@ export interface SourceDetailResponse {
   id: string
   type: SourceMode
   status: SourceStatus
+  sourceUrl?: string | null
   title?: string | null
   artist?: string | null
   duration?: number | null

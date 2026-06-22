@@ -68,6 +68,8 @@ interface EditingChantEvent {
 }
 
 interface LyricsPanelProps {
+  title?: string
+  artist?: string
   lyrics: SongLyricLine[]
   chantEvents?: SongChantEvent[]
   activeLineId?: string
@@ -92,6 +94,8 @@ interface LyricsPanelProps {
 }
 
 export function LyricsPanel({
+  title,
+  artist,
   lyrics,
   chantEvents = [],
   activeLineId,
@@ -116,6 +120,7 @@ export function LyricsPanel({
 }: LyricsPanelProps) {
   const listRef = useRef<HTMLDivElement | null>(null)
   const cardRef = useRef<HTMLElement | null>(null)
+  const displayMenuRef = useRef<HTMLDetailsElement | null>(null)
   const activeRef = useRef<HTMLDivElement | null>(null)
   const isSelectingRef = useRef(false)
   const activeLyricSelectionRef = useRef<ActiveLyricSelection | null>(null)
@@ -125,6 +130,20 @@ export function LyricsPanel({
   const [pendingChant, setPendingChant] = useState<PendingChant | null>(null)
   const [pendingChantEvent, setPendingChantEvent] = useState<PendingChantEvent | null>(null)
   const [editingChantEvent, setEditingChantEvent] = useState<EditingChantEvent | null>(null)
+
+  useEffect(() => {
+    function closeDisplayMenu(event: globalThis.PointerEvent) {
+      const menu = displayMenuRef.current
+      if (!menu || menu.contains(event.target as Node)) {
+        return
+      }
+
+      menu.removeAttribute('open')
+    }
+
+    document.addEventListener('pointerdown', closeDisplayMenu)
+    return () => document.removeEventListener('pointerdown', closeDisplayMenu)
+  }, [])
 
   useEffect(() => {
     if (!autoScroll || !listRef.current || !activeRef.current) {
@@ -194,38 +213,39 @@ export function LyricsPanel({
   return (
     <section ref={cardRef} className="lyrics-card">
       <div className="player-topline">
-        <div>
-          <h2>Lyrics flow</h2>
-        </div>
+        {title && artist ? (
+          <div className="lyrics-card__heading">
+            <h2>{title} - {artist}</h2>
+          </div>
+        ) : (
+          <div>
+            <h2>Lyrics flow</h2>
+          </div>
+        )}
         <div className="mode-bar">
-          <button
-            type="button"
-            className={`chip-button chip-button--compact${canShowTranslation ? ' is-active' : ''}`}
-            onClick={onToggleTranslation}
-            disabled={!hasTranslation}
-          >
-            Translation {canShowTranslation ? 'on' : 'off'}
-          </button>
-          <button
-            type="button"
-            className={`chip-button chip-button--compact${showChantRomanization ? ' is-active' : ''}`}
-            onClick={onToggleChantRomanization}
-          >
-            Romanization {showChantRomanization ? 'on' : 'off'}
-          </button>
-          <button
-            type="button"
-            className={`chip-button chip-button--compact${autoScroll ? ' is-active' : ''}`}
-            onClick={onToggleAutoScroll}
-          >
-            Auto-scroll {autoScroll ? 'on' : 'off'}
-          </button>
+          <details ref={displayMenuRef} className="display-menu">
+            <summary className="chip-button chip-button--compact display-menu__summary">Display</summary>
+            <div className="display-menu__panel">
+              <label className={`display-menu__option${!hasTranslation ? ' is-disabled' : ''}`}>
+                <input type="checkbox" checked={canShowTranslation} disabled={!hasTranslation} onChange={onToggleTranslation} />
+                <span>Translation</span>
+              </label>
+              <label className="display-menu__option">
+                <input type="checkbox" checked={showChantRomanization} onChange={onToggleChantRomanization} />
+                <span>Romanization</span>
+              </label>
+              <label className="display-menu__option">
+                <input type="checkbox" checked={autoScroll} onChange={onToggleAutoScroll} />
+                <span>Auto-scroll</span>
+              </label>
+            </div>
+          </details>
           <button
             type="button"
             className={`chip-button chip-button--compact${isEditing ? ' is-active' : ''}`}
             onClick={toggleEditing}
           >
-            {isEditing ? 'Done editing' : 'Edit lyrics'}
+            {isEditing ? 'Done editing' : 'Edit chant'}
           </button>
         </div>
       </div>

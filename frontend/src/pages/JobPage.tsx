@@ -48,7 +48,7 @@ export function JobPage() {
       }
 
       const timer = window.setTimeout(() => {
-        navigate(`/player/${songId}`)
+        navigate(getPlayerPath(songId, workflow?.sourceMode))
       }, 900)
       return () => window.clearTimeout(timer)
     }
@@ -179,7 +179,7 @@ export function JobPage() {
                 </div>
               ) : null}
               {completedSongId ? (
-                <button type="button" className="primary-button" onClick={() => navigate(`/player/${completedSongId}`)}>
+                <button type="button" className="primary-button" onClick={() => navigate(getPlayerPath(completedSongId, workflow?.sourceMode))}>
                   Open player now
                 </button>
               ) : null}
@@ -208,6 +208,10 @@ function inferMessage(type: JobType, status: JobStatus) {
     return 'Parsing paired bilingual LRC timing and exporting the player payload.'
   }
   return 'Finishing the current job.'
+}
+
+function getPlayerPath(songId: string, sourceMode: WorkflowState['sourceMode'] | undefined) {
+  return sourceMode === 'youtube' ? `/youtube-player/${songId}` : `/player/${songId}`
 }
 
 function extractWarnings(result: Record<string, unknown> | null | undefined) {

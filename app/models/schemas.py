@@ -23,6 +23,7 @@ class SourceDetailResponse(BaseModel):
     id: str
     type: SourceType
     status: SourceStatus
+    source_url: str | None = Field(default=None, alias="sourceUrl")
     title: str | None = None
     artist: str | None = None
     duration: float | None = None
