@@ -12,6 +12,7 @@ const selectedSongIds = parseSongIds(process.argv.slice(2))
 
 await rm(publicPracticeDir, { recursive: true, force: true })
 await mkdir(path.join(publicPracticeDir, 'songs'), { recursive: true })
+await mkdir(path.join(publicPracticeDir, 'sources'), { recursive: true })
 await mkdir(path.join(publicPracticeDir, 'audio'), { recursive: true })
 
 const manifest = await preparePracticeData()
@@ -31,6 +32,8 @@ async function preparePracticeData() {
   const exportFiles = await readdir(exportDir)
   const songFiles = exportFiles.filter((file) => file.endsWith('.json')).sort()
   const songs = []
+  const sources = []
+  const exportedSourceIds = new Set()
 
   for (const file of songFiles) {
     const sourcePath = path.join(exportDir, file)
@@ -40,8 +43,12 @@ async function preparePracticeData() {
       continue
     }
 
-    const audioPath = resolveAudioPath(song.audio?.playbackUrl)
-    if (!(await fileExists(audioPath))) {
+    const source = await readSongSource(song)
+    const isYoutube = source?.type === 'youtube'
+    const audioPath = isYoutube ? null : resolveAudioPath(song.audio?.playbackUrl)
+    const audioFileName = audioPath ? `${song.id}${path.extname(audioPath) || '.mp3'}` : null
+
+    if (audioPath && !(await fileExists(audioPath))) {
       if (selectedSongIds.size) {
         throw new Error(`Audio file not found for ${song.id}: ${audioPath}`)
       }
@@ -49,18 +56,26 @@ async function preparePracticeData() {
       continue
     }
 
-    const audioExt = path.extname(audioPath) || '.mp3'
-    const audioFileName = `${song.id}${audioExt}`
     const staticSong = {
       ...song,
       audio: {
         ...song.audio,
-        playbackUrl: `./practice-data/audio/${audioFileName}`,
+        playbackUrl: audioFileName ? `./practice-data/audio/${audioFileName}` : song.audio?.playbackUrl,
       },
     }
 
-    await cp(audioPath, path.join(publicPracticeDir, 'audio', audioFileName))
+    if (audioPath && audioFileName) {
+      await cp(audioPath, path.join(publicPracticeDir, 'audio', audioFileName))
+    }
     await writeFile(path.join(publicPracticeDir, 'songs', `${song.id}.json`), `${JSON.stringify(staticSong, null, 2)}\n`)
+
+    if (source && !exportedSourceIds.has(source.id)) {
+      const staticSource = toStaticSource(source)
+      await writeFile(path.join(publicPracticeDir, 'sources', `${source.id}.json`), `${JSON.stringify(staticSource, null, 2)}\n`)
+      sources.push({ id: source.id, sourceUrl: `./practice-data/sources/${source.id}.json` })
+      exportedSourceIds.add(source.id)
+    }
+
     songs.push({
       id: song.id,
       title: song.title,
@@ -68,13 +83,44 @@ async function preparePracticeData() {
       hasLyrics: Array.isArray(song.lyrics) && song.lyrics.length > 0,
       hasTranslation: Array.isArray(song.lyrics) && song.lyrics.some((line) => Boolean(line.translation?.trim())),
       hasNotes: Array.isArray(song.lyrics) && song.lyrics.some((line) => Array.isArray(line.notes) && line.notes.length > 0),
-      playerPath: `/player/${song.id}`,
+      playerPath: isYoutube ? `/youtube-player/${song.id}` : `/player/${song.id}`,
       songUrl: `./practice-data/songs/${song.id}.json`,
-      audioUrl: `./practice-data/audio/${audioFileName}`,
+      audioUrl: audioFileName ? `./practice-data/audio/${audioFileName}` : undefined,
     })
   }
 
-  return { songs }
+  return { songs, sources }
+}
+
+async function readSongSource(song) {
+  const sourceId = song.audio?.sourceId
+  if (!sourceId || typeof sourceId !== 'string') {
+    return null
+  }
+
+  const sourcePath = path.join(rootDir, 'data', 'sources', `${sourceId}.json`)
+  if (!(await fileExists(sourcePath))) {
+    if (selectedSongIds.size) {
+      throw new Error(`Source file not found for ${song.id}: ${sourcePath}`)
+    }
+    console.warn(`No source metadata found for ${song.id}: ${sourcePath}`)
+    return null
+  }
+
+  return JSON.parse(await readFile(sourcePath, 'utf8'))
+}
+
+function toStaticSource(source) {
+  return {
+    id: source.id,
+    type: source.type,
+    status: source.status,
+    sourceUrl: source.source_url ?? source.sourceUrl ?? null,
+    title: source.title ?? null,
+    artist: source.artist ?? null,
+    duration: source.duration ?? null,
+    errorMessage: source.error_message ?? source.errorMessage ?? null,
+  }
 }
 
 function parseSongIds(args) {

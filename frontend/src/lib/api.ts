@@ -18,7 +18,8 @@ const API_BASE_URL =
 const PRACTICE_SETTINGS_KEY = 'dynamicLyricsPracticeSettings'
 
 interface PracticeManifest {
-  songs: Array<SongCatalogEntry & { songUrl: string; audioUrl: string }>
+  songs: Array<SongCatalogEntry & { songUrl: string; audioUrl?: string }>
+  sources?: Array<{ id: string; sourceUrl: string }>
 }
 
 interface PracticeSongSettings {
@@ -88,6 +89,17 @@ export async function importSpotify(query: string) {
 }
 
 export async function getSource(sourceId: string) {
+  if (IS_PRACTICE_MODE) {
+    const manifest = await getPracticeManifest()
+    const entry = manifest.sources?.find((source) => source.id === sourceId)
+    if (!entry) {
+      throw new Error('Source not found in this practice export.')
+    }
+
+    const response = await fetch(entry.sourceUrl)
+    return parseResponse<SourceDetailResponse>(response)
+  }
+
   const response = await fetch(resolveUrl(`/api/sources/${sourceId}`))
   return parseResponse<SourceDetailResponse>(response)
 }

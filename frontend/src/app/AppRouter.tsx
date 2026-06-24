@@ -13,6 +13,7 @@ export function AppRouter() {
     return (
       <Routes>
         <Route path="/" element={<LibraryPage />} />
+        <Route path="/youtube-player/:songId" element={<YoutubePlayerPage />} />
         <Route path="/player/:songId" element={<PlayerPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
