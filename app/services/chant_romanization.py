@@ -49,6 +49,17 @@ HANGUL_BASE = 0xAC00
 HANGUL_END = 0xD7A3
 SYLLABLE_COUNT = 588
 VOWEL_COUNT = 28
+DEFAULT_ROMANIZATION_OVERRIDES = {
+    "김용선金容仙": "金容仙",
+    "문별이文星伊": "文星伊",
+    "정휘인丁輝人": "丁輝人",
+    "안혜진安惠真": "安惠真",
+    "김용선": "金容仙",
+    "문별이": "文星伊",
+    "정휘인": "丁輝人",
+    "안혜진": "安惠真",
+    "마마무": "Mamamoo",
+}
 
 
 def normalize_chant_notes(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -79,7 +90,8 @@ def normalize_lyric_notes(lyrics: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def romanize_text(text: str, overrides: dict[str, str] | None = None) -> str:
     original_has_hangul = has_hangul(text)
     result = text
-    for source, target in sorted((overrides or {}).items(), key=lambda item: len(item[0]), reverse=True):
+    replacements = DEFAULT_ROMANIZATION_OVERRIDES | (overrides or {})
+    for source, target in sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True):
         result = result.replace(source, target)
     if not original_has_hangul:
         return ""

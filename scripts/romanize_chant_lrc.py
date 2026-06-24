@@ -94,7 +94,8 @@ def load_overrides(path: Path | None) -> dict[str, str]:
 
 
 def run_check() -> None:
-    assert romanize_text("김용선") == "gimyongseon"
+    assert romanize_text("김용선") == "金容仙"
+    assert romanize_text("김용선金容仙 문별이文星伊 정휘인丁輝人 안혜진安惠真 마마무") == "金容仙 文星伊 丁輝人 安惠真 Mamamoo"
     assert romanize_text("화이팅", {"화이팅": "hwaiting"}) == "hwaiting"
     assert romanize_text("drop drop drop") == ""
     assert romanize_text("click click 삑") == "click click ppik"
@@ -104,7 +105,7 @@ def run_check() -> None:
     assert romanize_text("앉아") == "anja"
     assert romanize_text("값을") == "gapsseul"
     sample = {"lyrics": [{"start": 3.02, "notes": [{"type": "chant", "text": "김용선"}, {"type": "chant", "text": "drop drop drop"}]}]}
-    assert convert_json(sample, {}) == "[00:03.02]gimyongseon\n"
+    assert convert_json(sample, {}) == "[00:03.02]金容仙\n"
     print("romanize_chant_lrc check passed")
 
 
