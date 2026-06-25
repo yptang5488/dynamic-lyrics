@@ -759,6 +759,7 @@ button {
 .display-menu__summary {
   cursor: pointer;
   list-style: none;
+  user-select: none;
 }
 
 .display-menu__summary::-webkit-details-marker {
@@ -778,7 +779,7 @@ button {
 .display-menu__panel {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 0;
   min-width: 180px;
   display: grid;
   gap: 4px;
@@ -800,6 +801,7 @@ button {
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
+  user-select: none;
 }
 
 .display-menu__option:hover {
