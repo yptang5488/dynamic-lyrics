@@ -896,6 +896,9 @@ button {
 }
 
 .lyric-line__text--chant-event {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
   color: #ba3c13;
 }
 
@@ -962,6 +965,10 @@ button {
 .chant-romanization--inline {
   margin-top: 2px;
   color: #ba3c13;
+}
+
+.chant-romanization--event {
+  margin-top: 2px;
 }
 
 .chant-pill-wrap {

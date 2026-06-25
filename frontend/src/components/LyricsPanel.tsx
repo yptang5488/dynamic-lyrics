@@ -286,10 +286,10 @@ export function LyricsPanel({
                     </span>
                     <span className="lyric-line__text lyric-line__text--chant-event">
                       <span>{formatChantDisplayText(item.event.text)}</span>
+                      {showChantRomanization && item.event.romanizedText ? (
+                        <span className="chant-romanization chant-romanization--event">{item.event.romanizedText}</span>
+                      ) : null}
                     </span>
-                    {showChantRomanization && item.event.romanizedText ? (
-                      <span className="lyric-line__translation">{item.event.romanizedText}</span>
-                    ) : null}
                   </>
                 )}
               </div>
