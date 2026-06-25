@@ -76,6 +76,21 @@ def normalize_chant_notes(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return normalized
 
 
+def normalize_chant_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized = []
+    for event in events:
+        next_event = dict(event)
+        text = next_event.get("text")
+        if isinstance(text, str):
+            romanized = romanize_text(text)
+            if romanized:
+                next_event["romanizedText"] = romanized
+            else:
+                next_event.pop("romanizedText", None)
+        normalized.append(next_event)
+    return normalized
+
+
 def normalize_lyric_notes(lyrics: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized = []
     for line in lyrics:

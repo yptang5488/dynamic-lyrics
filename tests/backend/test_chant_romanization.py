@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.chant_romanization import normalize_chant_notes, romanize_text
+from app.services.chant_romanization import normalize_chant_events, normalize_chant_notes, romanize_text
 
 
 def test_romanize_text_handles_korean_english_and_liaison() -> None:
@@ -27,4 +27,16 @@ def test_normalize_chant_notes_adds_and_removes_romanized_text() -> None:
         {"type": "chant", "text": "김용선", "romanizedText": "金容仙"},
         {"type": "chant", "text": "drop drop drop"},
         {"type": "meaning", "text": "김용선"},
+    ]
+
+
+def test_normalize_chant_events_adds_and_removes_romanized_text() -> None:
+    events = [
+        {"id": "c1", "start": 0, "end": 1, "text": "마마무"},
+        {"id": "c2", "start": 1, "end": 2, "text": "SCREAM", "romanizedText": "stale"},
+    ]
+
+    assert normalize_chant_events(events) == [
+        {"id": "c1", "start": 0, "end": 1, "text": "마마무", "romanizedText": "Mamamoo"},
+        {"id": "c2", "start": 1, "end": 2, "text": "SCREAM"},
     ]

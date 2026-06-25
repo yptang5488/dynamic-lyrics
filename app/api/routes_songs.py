@@ -28,7 +28,7 @@ from app.models.schemas import (
     SongResponse,
     SongTimingShiftRequest,
 )
-from app.services.chant_romanization import normalize_chant_notes
+from app.services.chant_romanization import normalize_chant_events, normalize_chant_notes
 
 router = APIRouter(prefix="/songs", tags=["songs"])
 
@@ -210,10 +210,10 @@ def update_song_chant_events(
 
     payload = SongResponse.model_validate(json_loads(song["lyrics_json"], {}))
     next_payload = payload.model_dump(by_alias=True)
-    next_payload["chantEvents"] = [
+    next_payload["chantEvents"] = normalize_chant_events([
         event.model_dump(by_alias=True)
         for event in sorted(request.chant_events, key=lambda item: item.start)
-    ]
+    ])
     persist_song_payload(song_id, next_payload)
     return SongResponse.model_validate(next_payload)
 
