@@ -22,8 +22,8 @@ export function LibraryPage() {
 
   return (
     <PageShell
-      title="Song library"
-      subtitle="Pick a maintainer-prepared track and enjoy synced lyrics player!"
+      title="MAMAMOO Fan Chant Practice Player"
+      subtitle={'整理／製作：AhhTang \n個人練習向整理，請勿擅自進行二次修改、重新發布，或用於其他用途。如有問題歡迎回報。'}
       aside={(
         <div className="library-header-actions">
           {IS_PRACTICE_MODE ? null : <Link className="secondary-button" to="/import">Maintainer import</Link>}

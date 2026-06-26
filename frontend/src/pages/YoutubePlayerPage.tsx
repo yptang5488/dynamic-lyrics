@@ -486,7 +486,7 @@ export function YoutubePlayerPage() {
             onToggleTranslation={() => setShowTranslation((value) => !value)}
             onToggleChantRomanization={() => setShowChantRomanization((value) => !value)}
             onToggleAutoScroll={() => setAutoScroll((value) => !value)}
-            onToggleEditing={toggleLyricsEditing}
+            onToggleEditing={IS_PRACTICE_MODE ? undefined : toggleLyricsEditing}
             onSeekToLine={handleSeekToLine}
             onSeekToChantEvent={handleSeekToChantEvent}
             onSelectEditLine={handleSelectEditLine}

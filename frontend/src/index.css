@@ -122,6 +122,10 @@ button {
   color: var(--muted);
 }
 
+.page-subtitle {
+  white-space: pre-line;
+}
+
 .page-grid,
 .split-grid {
   display: grid;

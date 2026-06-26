@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 import { flushSync } from 'react-dom'
+import { IS_PRACTICE_MODE } from '../lib/practiceMode'
 import { formatTime } from '../lib/time'
 import type { SongChantEvent, SongLyricLine } from '../types/api'
 
@@ -223,30 +224,42 @@ export function LyricsPanel({
           </div>
         )}
         <div className="mode-bar">
-          <details ref={displayMenuRef} className="display-menu">
-            <summary className="chip-button chip-button--compact display-menu__summary">Display</summary>
-            <div className="display-menu__panel">
-              <label className={`display-menu__option${!hasTranslation ? ' is-disabled' : ''}`}>
-                <input type="checkbox" checked={canShowTranslation} disabled={!hasTranslation} onChange={onToggleTranslation} />
-                <span>Translation</span>
-              </label>
-              <label className="display-menu__option">
-                <input type="checkbox" checked={showChantRomanization} onChange={onToggleChantRomanization} />
-                <span>Romanization</span>
-              </label>
-              <label className="display-menu__option">
-                <input type="checkbox" checked={autoScroll} onChange={onToggleAutoScroll} />
-                <span>Auto-scroll</span>
-              </label>
-            </div>
-          </details>
-          <button
-            type="button"
-            className={`chip-button chip-button--compact${isEditing ? ' is-active' : ''}`}
-            onClick={toggleEditing}
-          >
-            {isEditing ? 'Done editing' : 'Edit chant'}
-          </button>
+          {IS_PRACTICE_MODE ? (
+            <button
+              type="button"
+              className={`chip-button chip-button--compact${autoScroll ? ' is-active' : ''}`}
+              onClick={onToggleAutoScroll}
+            >
+              Auto-scroll
+            </button>
+          ) : (
+            <details ref={displayMenuRef} className="display-menu">
+              <summary className="chip-button chip-button--compact display-menu__summary">Display</summary>
+              <div className="display-menu__panel">
+                <label className={`display-menu__option${!hasTranslation ? ' is-disabled' : ''}`}>
+                  <input type="checkbox" checked={canShowTranslation} disabled={!hasTranslation} onChange={onToggleTranslation} />
+                  <span>Translation</span>
+                </label>
+                <label className="display-menu__option">
+                  <input type="checkbox" checked={showChantRomanization} onChange={onToggleChantRomanization} />
+                  <span>Romanization</span>
+                </label>
+                <label className="display-menu__option">
+                  <input type="checkbox" checked={autoScroll} onChange={onToggleAutoScroll} />
+                  <span>Auto-scroll</span>
+                </label>
+              </div>
+            </details>
+          )}
+          {onToggleEditing ? (
+            <button
+              type="button"
+              className={`chip-button chip-button--compact${isEditing ? ' is-active' : ''}`}
+              onClick={toggleEditing}
+            >
+              {isEditing ? 'Done editing' : 'Edit chant'}
+            </button>
+          ) : null}
         </div>
       </div>
 
