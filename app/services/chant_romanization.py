@@ -60,6 +60,12 @@ DEFAULT_ROMANIZATION_OVERRIDES = {
     "안혜진": "安惠真",
     "마마무": "Mamamoo",
 }
+MEMBER_CHINESE_NAME_PAIRS = (
+    ("김용선", "金容仙"),
+    ("문별이", "文星伊"),
+    ("정휘인", "丁輝人"),
+    ("안혜진", "安惠真"),
+)
 
 
 def normalize_chant_notes(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -67,6 +73,7 @@ def normalize_chant_notes(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for note in notes:
         next_note = dict(note)
         if next_note.get("type") == "chant" and isinstance(next_note.get("text"), str):
+            next_note["text"] = strip_member_chinese_names(next_note["text"])
             romanized = romanize_text(next_note["text"])
             if romanized:
                 next_note["romanizedText"] = romanized
@@ -82,7 +89,8 @@ def normalize_chant_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]
         next_event = dict(event)
         text = next_event.get("text")
         if isinstance(text, str):
-            romanized = romanize_text(text)
+            next_event["text"] = strip_member_chinese_names(text)
+            romanized = romanize_text(next_event["text"])
             if romanized:
                 next_event["romanizedText"] = romanized
             else:
@@ -126,6 +134,19 @@ def romanize_text(text: str, overrides: dict[str, str] | None = None) -> str:
     if run:
         romanized.append(romanize_hangul_run(run))
     return "".join(romanized)
+
+
+def strip_member_chinese_names(text: str) -> str:
+    result = text
+    for korean_name, chinese_name in MEMBER_CHINESE_NAME_PAIRS:
+        for pattern in (
+            f"{korean_name}{chinese_name}",
+            f"{korean_name} {chinese_name}",
+            f"{korean_name}({chinese_name})",
+            f"{korean_name}（{chinese_name}）",
+        ):
+            result = result.replace(pattern, korean_name)
+    return result
 
 
 def romanize_hangul_run(chars: list[str]) -> str:

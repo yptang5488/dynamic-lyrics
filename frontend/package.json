@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "export:data": "python3 ../scripts/export_song_data.py",
     "build:practice": "node ../scripts/build-practice-site.mjs",
+    "build:practice:fresh": "npm run export:data && npm run build:practice",
     "lint": "eslint .",
     "preview": "vite preview"
   },

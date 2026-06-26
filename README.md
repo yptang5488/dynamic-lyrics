@@ -51,10 +51,10 @@ Use this when you want to export a shareable, backend-free practice version for 
 
 ```bash
 cd frontend
-npm run build:practice
+npm run build:practice:fresh
 ```
 
-The export is written to `dist/practice-site`. It uses the existing React/Vite frontend styling, but runs in static practice mode:
+This first regenerates `data/export` from the canonical song records under `data/songs`, then writes the static site to `dist/practice-site`. The static site uses the existing React/Vite frontend styling, but runs in practice mode:
 
 - reads prepared song JSON from `data/export`
 - copies available audio files into the static export
@@ -62,10 +62,21 @@ The export is written to `dist/practice-site`. It uses the existing React/Vite f
 - disables maintainer-only import/delete routes
 - stores each friend's calibration and chant edits in their browser `localStorage`
 
+Use these commands separately only when needed:
+
+```bash
+cd frontend
+npm run export:data      # refresh data/export from data/songs
+npm run build:practice  # package the current data/export as-is
+```
+
+After changing song data or export normalization rules, run `npm run build:practice:fresh`. Use `npm run build:practice` alone only when `data/export` is already up to date and you only need to rebuild the static assets.
+
 To export only specific songs, pass comma-separated song IDs:
 
 ```bash
 cd frontend
+npm run export:data -- --songs=song_src_aaf2a49c_da3ed6,song_src_4671e574_dd8233
 npm run build:practice -- --songs=song_src_aaf2a49c_da3ed6,song_src_4671e574_dd8233
 ```
 

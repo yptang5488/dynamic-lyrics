@@ -18,7 +18,7 @@ def test_romanize_text_handles_korean_english_and_liaison() -> None:
 
 def test_normalize_chant_notes_adds_and_removes_romanized_text() -> None:
     notes = [
-        {"type": "chant", "text": "김용선"},
+        {"type": "chant", "text": "김용선金容仙"},
         {"type": "chant", "text": "drop drop drop", "romanizedText": "stale"},
         {"type": "meaning", "text": "김용선"},
     ]
@@ -34,9 +34,11 @@ def test_normalize_chant_events_adds_and_removes_romanized_text() -> None:
     events = [
         {"id": "c1", "start": 0, "end": 1, "text": "마마무"},
         {"id": "c2", "start": 1, "end": 2, "text": "SCREAM", "romanizedText": "stale"},
+        {"id": "c3", "start": 2, "end": 3, "text": "문별이(文星伊)"},
     ]
 
     assert normalize_chant_events(events) == [
         {"id": "c1", "start": 0, "end": 1, "text": "마마무", "romanizedText": "Mamamoo"},
         {"id": "c2", "start": 1, "end": 2, "text": "SCREAM"},
+        {"id": "c3", "start": 2, "end": 3, "text": "문별이", "romanizedText": "文星伊"},
     ]
