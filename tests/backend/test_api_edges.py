@@ -381,7 +381,7 @@ def test_update_song_lyric_notes_normalizes_chant_romanization(client) -> None:
     response.raise_for_status()
 
     assert response.json()["lyrics"][0]["notes"] == [
-        {"type": "chant", "text": "김용선", "romanizedText": "gimyongseon"},
+        {"type": "chant", "text": "김용선", "romanizedText": "金容仙"},
         {"type": "chant", "text": "drop drop drop"},
     ]
 

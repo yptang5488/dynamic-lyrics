@@ -39,7 +39,7 @@ def test_build_song_persists_export_and_expected_payload_shape(test_settings) ->
     }
     assert song["lyrics"][0]["text"] == "First line"
     assert song["lyrics"][0]["segments"] == []
-    assert song["lyrics"][0]["notes"] == [{"type": "chant", "text": "김용선", "romanizedText": "gimyongseon"}]
+    assert song["lyrics"][0]["notes"] == [{"type": "chant", "text": "김용선", "romanizedText": "金容仙"}]
 
     export_path = test_settings.export_dir / f"{song['id']}.json"
     assert export_path.exists()
